@@ -48,10 +48,10 @@ const BusinessSignUp = () => {
   const [showPass, setShowPass] = useState(false);
 
   const [formData, setFormData] = useState({
-    companyname: "", email: "", password: "", confirm: "", companycode: "",
+    company_name: "", email: "", password: "", confirm: "", company_code: "",
   });
 
-  const { companyname, email, password, confirm } = formData;
+  const { company_name, email, password, confirm } = formData;
   const onChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
@@ -60,14 +60,14 @@ const BusinessSignUp = () => {
     setLoading(true);
     setError("");
     try {
-      const updatedFormData = { ...formData, companycode: generateRandomCode(6) };
-      // const res = await axios.post("http://localhost:5000/api/auth/company_register", updatedFormData);
-      // localStorage.setItem("user", res.data.user.companyname);
-      // localStorage.setItem("email", res.data.user.email);
-      // localStorage.setItem("id", res.data.user.id);
-      // localStorage.setItem("role", res.data.user.role);
-      // localStorage.setItem("code", res.data.user.companycode);
-      // localStorage.setItem("token", res.data.token);
+      const updatedFormData = { ...formData, company_code: generateRandomCode(6) };
+      const res = await axios.post("http://localhost:5000/api/auth/company_register", updatedFormData);
+      localStorage.setItem("user", res.data.user.company_name);
+      localStorage.setItem("email", res.data.user.email);
+      localStorage.setItem("id", res.data.user.id);
+      localStorage.setItem("role", res.data.user.role);
+      localStorage.setItem("code", res.data.user.company_code);
+      localStorage.setItem("token", res.data.token);
       navigate("/setup");
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");
@@ -118,8 +118,8 @@ const BusinessSignUp = () => {
 
           <form onSubmit={onSubmit} className="space-y-5">
             <div className="flex flex-col items-start">
-              <label htmlFor="companyname" className="label">Company Name</label>
-              <input id="companyname" name="companyname" type="text" required className="input-field" placeholder="Acme Corporation" value={companyname} onChange={onChange} />
+              <label htmlFor="company_name" className="label">Company Name</label>
+              <input id="company_name" name="company_name" type="text" required className="input-field" placeholder="Acme Corporation" value={company_name} onChange={onChange} />
             </div>
 
             <div className="flex flex-col items-start">
