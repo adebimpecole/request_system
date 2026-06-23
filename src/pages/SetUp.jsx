@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { getId, getToken } from "../utilis/storage";
 import AddDepartments from "./setup/AddDepartments";
 import AddApprovers from "./setup/AddApprovers";
 import SetFundingApprover from "./setup/SetFundingApprover";
@@ -39,8 +40,8 @@ const SetUp = () => {
     const currentStage = parseInt(localStorage.getItem("setupStage") || "1", 10);
     if (currentStage < 5) return; // only needed on confirm step
 
-    const id = localStorage.getItem("id");
-    const token = localStorage.getItem("token");
+    const id = getId();
+    const token = getToken();
     if (!id || !token) return;
 
     const restore = async () => {
@@ -98,8 +99,8 @@ const SetUp = () => {
   };
 
   const Next = async () => {
-    const id = localStorage.getItem("id");
-    const token = localStorage.getItem("token");
+    const id = getId();
+    const token = getToken();
 
     if (stage === 5) {
       // Clear setup progress from localStorage

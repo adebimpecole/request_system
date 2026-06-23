@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { getToken } from "../../../utilis/storage";
 
 const statusConfig = {
   approved: { cls: "status-approved", label: "Approved", dot: "bg-emerald-500" },
@@ -17,7 +18,7 @@ const RequestDetails = () => {
   const [htmlContent, setHtmlContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const token = localStorage.getItem("token");
+  const token = getToken();
 
   useEffect(() => {
     const fetchRequest = async () => {

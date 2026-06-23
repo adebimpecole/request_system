@@ -12,28 +12,25 @@ const EmployeeSignUp = () => {
   const [showPass, setShowPass] = useState(false);
 
   const [formData, setFormData] = useState({
-    firstname: "", lastname: "", companyid: "", department: "",
-    email: "", password: "", confirm: "", companycode: "", role: "requester",
+    firstName: "", lastName: "", department: "",
+    email: "", password: "", confirm: "", companyCode: "", role: "requester",
   });
 
-  const { firstname, lastname, companycode, department, email, password, confirm } = formData;
+  const { firstName, lastName, companyCode, department, email, password, confirm } = formData;
 
   useEffect(() => {
-    if (companycode.length < 6) { setDepartmentList([]); setCompanyName(""); setCodeVerified(false); return; }
+    console.log(companyCode)
+    if (companyCode.length < 6) { setDepartmentList([]); setCompanyName(""); setCodeVerified(false); return; }
     const fetch = async () => {
       try {
-        const [deptRes, compRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/department/get_department/${companycode}`),
-          axios.get(`http://localhost:5000/api/company/get_company/${companycode}`),
-        ]);
+        const deptRes = await 
+          axios.get(`http://localhost:5000/api/department/get_department/${companyCode}`);
         setDepartmentList(deptRes?.data || []);
-        setCompanyName(compRes.data.companyname || "");
         setCodeVerified(true);
-        setFormData((prev) => ({ ...prev, companyid: compRes.data._id }));
       } catch { setCodeVerified(false); setDepartmentList([]); setCompanyName(""); }
     };
     fetch();
-  }, [companycode]);
+  }, [companyCode]);
 
   const onChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -41,15 +38,11 @@ const EmployeeSignUp = () => {
     e.preventDefault();
     if (password !== confirm) { setError("Passwords do not match."); return; }
     setLoading(true); setError("");
+    console.log(formData)
     try {
-      // const res = await axios.post("http://localhost:5000/api/auth/employee_register", formData);
-      // localStorage.setItem("user", `${res.data.user.firstname} ${res.data.user.lastname}`);
-      // localStorage.setItem("email", res.data.user.email);
-      // localStorage.setItem("id", res.data.user.id);
-      // localStorage.setItem("role", res.data.user.role);
-      // localStorage.setItem("department", res.data.user.department);
-      // localStorage.setItem("companyid", res.data.user.companyid);
-      // localStorage.setItem("token", res.data.token);
+      const res = await axios.post("http://localhost:5000/api/auth/employee_register", formData);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      localStorage.setItem("token", JSON.stringify(res.data.token));
       navigate("/employeedashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");
@@ -131,7 +124,7 @@ const EmployeeSignUp = () => {
             <div>
               <label className="label">Company Code</label>
               <div className="relative">
-                <input name="companycode" type="text" required className="input-field pr-10" placeholder="Enter 6-digit code" value={companycode} onChange={onChange} />
+                <input name="companyCode" type="text" required className="input-field pr-10" placeholder="Enter 6-digit code" value={companyCode} onChange={onChange} />
                 {codeVerified && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -152,11 +145,11 @@ const EmployeeSignUp = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">First Name</label>
-                <input name="firstname" type="text" required className="input-field" placeholder="Jane" value={firstname} onChange={onChange} />
+                <input name="firstName" type="text" required className="input-field" placeholder="Jane" value={firstName} onChange={onChange} />
               </div>
               <div>
                 <label className="label">Last Name</label>
-                <input name="lastname" type="text" required className="input-field" placeholder="Doe" value={lastname} onChange={onChange} />
+                <input name="lastName" type="text" required className="input-field" placeholder="Doe" value={lastName} onChange={onChange} />
               </div>
             </div>
 

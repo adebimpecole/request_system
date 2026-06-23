@@ -1,54 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useLocation, useNavigate } from "react-router-dom";
-import { setUserDetails } from "../../reduxtoolkit/features/user/userSlice";
+import { useNavigate } from "react-router-dom";
 import {
   setToogleDropdown,
   setToogleNotification,
 } from "../../reduxtoolkit/features/modal/modalSlice";
 import NotificationCard from "../cards/NotificationCard";
-import axios from "axios";
+import { getDisplayName } from "../../utilis/storage";
 
 const DashboardNavbar = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
-  const [user, setUser] = useState("");
-
-  useEffect(() => {
-    const getUser = async () => {
-      let userid = localStorage.getItem("id");
-      let token = localStorage.getItem("token");
-
-      try {
-        const res = await axios.get(
-          `http://localhost:5000/api/employee/${userid}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        console.log(res);
-        return res;
-      } catch (error) {
-        console.error("Error fetching the department:", error);
-      }
-    };
-
-    const getUserData = async () => {
-      const userData = await getUser();
-
-      console.log(userData.data.firstname);
-      setUser(
-        userData?.data.role === "admin"
-          ? userData?.data.companyname
-          : userData?.data.firstname + " " + userData?.data.lastname
-      );
-    };
-
-    getUserData();
-  }, []);
+  const user = getDisplayName();
 
   const toggleDropdown = useSelector((state) => state.modal.toggleDropdown);
   const toggleNotification = useSelector(

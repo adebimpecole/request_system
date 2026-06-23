@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { getEmail } from "../../utilis/storage";
 
 const AddApprovers = ({ Add, Delete }) => {
   const [approvers, setApprovers] = useState([]);
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
-  const adminEmail = localStorage.getItem("email") || "";
+  const adminEmail = getEmail();
 
   // Seed the admin email once on mount
   useEffect(() => {

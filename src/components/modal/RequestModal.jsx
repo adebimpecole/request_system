@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSlice";
 import { getDate } from "../../utilis/functions";
 import axios from "axios";
+import { getId } from "../../utilis/storage";
 
 const RequestModal = () => {
   const dispatch = useDispatch();
@@ -14,7 +15,7 @@ const RequestModal = () => {
 
   // const id = useSelector((state) => state.user.id);
 
-  const id = localStorage.getItem("id");
+  const id = getId();
 
   const [formData, setFormData] = useState({
     title: "",

@@ -2,15 +2,16 @@ import React, { useEffect, useState } from "react";
 import Button from "../buttons/Button";
 import axios from "axios";
 import Spinner from "../Spinner";
+import { getId, getToken, getRole } from "../../utilis/storage";
 
 const ProfileCard = () => {
-  let role = localStorage.getItem("role");
+  let role = getRole();
   let [user, setUser] = useState({});
 
   useEffect(() => {
     const getUser = async () => {
-      let userid = localStorage.getItem("id");
-      let token = localStorage.getItem("token");
+      let userid = getId();
+      let token = getToken();
 
       try {
         if (role == "admin") {

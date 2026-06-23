@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { getFormattedDate } from "../../../utilis/functions";
 import { setToogleRequestModal } from "../../../reduxtoolkit/features/modal/modalSlice";
+import { getCompanyId, getRole, getToken } from "../../../utilis/storage";
 
 const statusBadge = (status) => {
   const s = (status || "pending").toLowerCase();
@@ -29,9 +30,9 @@ const Requests = () => {
 
   useEffect(() => {
     const fetchRequests = async () => {
-      const id = localStorage.getItem("companyid");
-      const role = localStorage.getItem("role");
-      const token = localStorage.getItem("token");
+      const id = getCompanyId();
+      const role = getRole();
+      const token = getToken();
       try {
         const res = await axios.get(`http://localhost:5000/api/company/requests/${id}`, {
           params: { role },

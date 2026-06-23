@@ -21,23 +21,20 @@ const LogIn = () => {
     setLoading(true);
     setError("");
     try {
-      // const res = await axios.post("http://localhost:5000/api/auth/login", formData);
-      // if (res.data.message?.toLowerCase() === "login successful") {
-      //   // localStorage.setItem("user", res.data.user.companyname);
-      //   // localStorage.setItem("email", res.data.user.email);
-      //   // localStorage.setItem("id", res.data.user.id);
-      //   // localStorage.setItem("role", res.data.user.role);
-      //   // localStorage.setItem("token", res.data.token);
-      //   // dispatch(setUserDetails({
-      //   //   id: res.data.user.id,
-      //   //   name: res.data.user.companyname,
-      //   //   email: res.data.user.email,
-      //   //   role: res.data.user.role,
-      //   //   company: res.data.user.companyname,
-      //   //   token: res.data.token,
-      //   // }));
+      const res = await axios.post("http://localhost:5000/api/auth/login", formData);
+      if (res.data.message?.toLowerCase() === "login successful") {
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        localStorage.setItem("token", JSON.stringify(res.data.token));
+        dispatch(setUserDetails({
+          id: res.data.user.id,
+          name: res.data.user.companyname,
+          email: res.data.user.email,
+          role: res.data.user.role,
+          company: res.data.user.companyname,
+          token: res.data.token,
+        }));
         navigate("/employeedashboard");
-      // }
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Invalid email or password. Please try again.");
     } finally {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { getCompanyId, getRole, getToken } from "../../../utilis/storage";
 
 const roleColors = {
   admin: "bg-brand-50 text-brand-700 ring-brand-200",
@@ -28,9 +29,9 @@ const Teams = () => {
 
   useEffect(() => {
     const fetchTeam = async () => {
-      const companyid = localStorage.getItem("companyid");
-      const role = localStorage.getItem("role");
-      const token = localStorage.getItem("token");
+      const companyid = getCompanyId();
+      const role = getRole();
+      const token = getToken();
       try {
         const res = await axios.get(`http://localhost:5000/api/company/${companyid}`, {
           params: { role },

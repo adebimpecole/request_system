@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getFormattedDate } from "../../../utilis/functions";
+import { getId, getToken, getDisplayName } from "../../../utilis/storage";
 
 const StatCard = ({ title, value, icon, colorClass, change, up }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 flex flex-col gap-4 hover:shadow-card-hover transition-shadow duration-200">
@@ -41,14 +42,14 @@ const Home = () => {
   const navigate = useNavigate();
   const [requestList, setRequestList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = localStorage.getItem("user") || "User";
+  const user = getDisplayName() || "User";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   useEffect(() => {
     const fetchRequests = async () => {
-      const id = localStorage.getItem("id");
-      const token = localStorage.getItem("token");
+      const id = getId();
+      const token = getToken();
       try {
         const res = await axios.get(`http://localhost:5000/api/employee/requests/${id}`, {
           headers: { Authorization: `Bearer ${token}` },

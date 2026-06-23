@@ -62,12 +62,8 @@ const BusinessSignUp = () => {
     try {
       const updatedFormData = { ...formData, company_code: generateRandomCode(6) };
       const res = await axios.post("http://localhost:5000/api/auth/company_register", updatedFormData);
-      localStorage.setItem("user", res.data.user.company_name);
-      localStorage.setItem("email", res.data.user.email);
-      localStorage.setItem("id", res.data.user.id);
-      localStorage.setItem("role", res.data.user.role);
-      localStorage.setItem("code", res.data.user.company_code);
-      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      localStorage.setItem("token", JSON.stringify(res.data.token));
       navigate("/setup");
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");

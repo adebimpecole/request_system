@@ -5,6 +5,7 @@ import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSl
 import { getDate } from "../../utilis/functions";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
+import { getId, getToken } from "../../utilis/storage";
 
 const CreateRequestModal = () => {
   const dispatch = useDispatch();
@@ -15,8 +16,8 @@ const CreateRequestModal = () => {
 
   // const id = useSelector((state) => state.user.id);
 
-  const id = localStorage.getItem("id");
-  const token = localStorage.getItem("token");
+  const id = getId();
+  const token = getToken();
 
   const [formData, setFormData] = useState({
     title: "",

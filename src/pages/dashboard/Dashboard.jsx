@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSlice";
 import CreateRequestModal from "../../components/modal/CreateRequestModal";
 import InviteMember from "../../components/modal/InviteMember";
+import { getDisplayName, getRole } from "../../utilis/storage";
 
 const navItems = [
   {
@@ -62,8 +63,8 @@ const Dashboard = () => {
   const toggleRequestModal = useSelector((state) => state.modal.toggleRequestModal);
   const toggleInviteModal = useSelector((state) => state.modal.toggleInviteModal);
 
-  const user = localStorage.getItem("user") || "User";
-  const role = localStorage.getItem("role") || "";
+  const user = getDisplayName() || "User";
+  const role = getRole();
 
   const handleLogout = () => {
     localStorage.clear();

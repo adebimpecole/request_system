@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { getRole } from "../../utilis/storage";
 import {
   setToogleRequestModal,
   setToogleInviteModal,
@@ -11,7 +12,7 @@ const SideNav = () => {
   const dispatch = useDispatch();
   const location = useLocation();
 
-  const [role, setRole] = useState(localStorage.getItem("role"));
+  const [role, setRole] = useState(getRole());
 
   const { hash, pathname, search } = location;
 
