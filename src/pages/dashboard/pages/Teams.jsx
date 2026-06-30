@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from "react";
 import api from "../../../utilis/api";
-import { getCompanyId, getRole, getToken } from "../../../utilis/storage";
+import { getCompanyId, getRole, getId } from "../../../utilis/storage";
 
 const roleColors = {
   admin: "bg-brand-50 text-brand-700 ring-brand-200",
   requester: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   approver: "bg-violet-50 text-violet-700 ring-violet-200",
-  "funding-approver": "bg-amber-50 text-amber-700 ring-amber-200",
+  department_head: "bg-amber-50 text-amber-700 ring-amber-200",
 };
 
-const initials = (first, last) =>
-  `${(first || "")[0] || ""}${(last || "")[0] || ""}`.toUpperCase();
+const roleLabels = {
+  admin: "Admin",
+  requester: "Requester",
+  approver: "Approver",
+  department_head: "Department Head",
+};
+
+const initials = (name) =>
+  (name || "").split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
 const avatarColors = [
   "from-brand-400 to-brand-600",
@@ -21,33 +28,88 @@ const avatarColors = [
   "from-sky-400 to-blue-600",
 ];
 
+const Spinner = () => (
+  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  </svg>
+);
+
+const FILTERS = ["all", "admin", "department_head", "approver", "requester"];
+
 const Teams = () => {
+  const companyId = getCompanyId();
+  const role = getRole();
+  const myId = getId();
+  const canManageApprovers = role === "admin";
+  const canRevokeOrDelete = role === "admin" || role === "department_head";
+  const canInvite = !!role; // any signed-in employee/admin can invite
+
   const [teamList, setTeamList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState("grid"); // grid | table
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [busyId, setBusyId] = useState(null);
+  const [actionError, setActionError] = useState("");
 
-  useEffect(() => {
-    const fetchTeam = async () => {
-      const companyid = getCompanyId();
-      const role = getRole();
-      const token = getToken();
-      try {
-        const res = await api.get(`/company/get_employees/${companyid}`, {
-          params: { role },
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setTeamList(res.data || []);
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    };
-    fetchTeam();
-  }, []);
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/company/get_company/${companyId}`);
+      setTeamList(res.data?.employees || []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
 
   const filtered = teamList.filter((m) => {
-    const full = `${m.firstname} ${m.lastname} ${m.email} ${m.role}`.toLowerCase();
-    return !search || full.includes(search.toLowerCase());
+    const matchesRole = roleFilter === "all" || m.role === roleFilter;
+    const full = `${m.name} ${m.email} ${m.role}`.toLowerCase();
+    const matchesSearch = !search || full.includes(search.toLowerCase());
+    return matchesRole && matchesSearch;
   });
+
+  const toggleApproverRole = async (member, targetRole) => {
+    setActionError("");
+    setBusyId(member._id);
+    const isCurrentlyThatRole = member.role === targetRole;
+    try {
+      await api.post(`/approver/${isCurrentlyThatRole ? "unassign" : "assign"}`, {
+        company_id: companyId,
+        employee_id: member._id,
+        role: targetRole,
+      });
+      await load();
+    } catch (e) {
+      setActionError(e.response?.data?.message || "Could not update role.");
+    } finally { setBusyId(null); }
+  };
+
+  const toggleRevoke = async (member) => {
+    setActionError("");
+    setBusyId(member._id);
+    const suspend = member.status !== "suspended";
+    try {
+      await api.post(`/employee/${member._id}/revoke`, { suspend });
+      await load();
+    } catch (e) {
+      setActionError(e.response?.data?.message || "Could not update request rights.");
+    } finally { setBusyId(null); }
+  };
+
+  const deleteMember = async (member) => {
+    setActionError("");
+    setBusyId(member._id);
+    try {
+      await api.delete(`/employee/${member._id}`);
+      setTeamList((p) => p.filter((m) => m._id !== member._id));
+    } catch (e) {
+      setActionError(e.response?.data?.message || "Could not remove employee.");
+    } finally { setBusyId(null); }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -57,75 +119,55 @@ const Teams = () => {
           <h1 className="text-2xl font-extrabold text-slate-900">Team</h1>
           <p className="text-slate-500 text-sm mt-1">{teamList.length} members in your organization</p>
         </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          <div className="flex items-center p-1 bg-slate-100 rounded-xl">
-            {["grid", "table"].map((v) => (
-              <button key={v} onClick={() => setView(v)} className={`p-2 rounded-lg transition-all ${view === v ? "bg-white shadow-sm text-slate-800" : "text-slate-400 hover:text-slate-600"}`}>
-                {v === "grid" ? (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+        {canInvite && (
+          <button onClick={() => setInviteOpen(true)} className="btn-primary self-start sm:self-auto">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+            </svg>
+            Invite member
+          </button>
+        )}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-        </svg>
-        <input
-          type="text" placeholder="Search team members..."
-          value={search} onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all"
-        />
+      {actionError && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+
+      {/* Search + role filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative max-w-sm flex-1">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+          <input
+            type="text" placeholder="Search team members..."
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all"
+          />
+        </div>
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setRoleFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                roleFilter === f ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {f === "all" ? "All" : roleLabels[f]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <svg className="w-7 h-7 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        </div>
+        <div className="flex justify-center py-12"><Spinner /></div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-card">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-            </svg>
-          </div>
           <p className="font-semibold text-slate-700">No team members found</p>
-          <p className="text-sm text-slate-400 mt-1">Try adjusting your search criteria.</p>
-        </div>
-      ) : view === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filtered.map((member, i) => (
-            <div key={member.id || i} className="bg-white rounded-2xl border border-slate-100 shadow-card hover:shadow-card-hover transition-all duration-200 p-6">
-              <div className="flex flex-col items-center text-center">
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center text-white font-bold text-xl mb-4 shadow-lg`}>
-                  {initials(member.firstname, member.lastname)}
-                </div>
-                <h3 className="font-bold text-slate-900 capitalize">{member.firstname} {member.lastname}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{member.email}</p>
-                <div className="mt-3">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 capitalize ${roleColors[member.role?.toLowerCase()] || "bg-slate-100 text-slate-600 ring-slate-200"}`}>
-                    {member.role || "Member"}
-                  </span>
-                </div>
-                {member.department && (
-                  <p className="mt-2 text-xs text-slate-400 capitalize">{member.department}</p>
-                )}
-              </div>
-            </div>
-          ))}
+          <p className="text-sm text-slate-400 mt-1">Try adjusting your search or filter.</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
@@ -133,35 +175,187 @@ const Teams = () => {
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Member</th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
                 <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Department</th>
-                <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
+                <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
+                <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                {(canManageApprovers || canRevokeOrDelete) && (
+                  <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((member, i) => (
-                <tr key={member.id || i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
-                        {initials(member.firstname, member.lastname)}
+              {filtered.map((member, i) => {
+                const isBusy = busyId === member._id;
+                const isSelf = member._id === myId;
+                return (
+                  <tr key={member._id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+                          {initials(member.name)}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-800 capitalize block">{member.name}</span>
+                          <span className="text-xs text-slate-400">{member.email}</span>
+                        </div>
                       </div>
-                      <span className="font-semibold text-slate-800 capitalize">{member.firstname} {member.lastname}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-slate-500 text-xs">{member.email}</td>
-                  <td className="px-4 py-4 text-slate-600 capitalize text-sm">{member.department || "—"}</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 capitalize ${roleColors[member.role?.toLowerCase()] || "bg-slate-100 text-slate-600 ring-slate-200"}`}>
-                      {member.role || "Member"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-4 text-slate-600 capitalize text-sm">{member.department || "—"}</td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ${roleColors[member.role] || "bg-slate-100 text-slate-600 ring-slate-200"}`}>
+                        {roleLabels[member.role] || member.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex items-center gap-1 text-xs font-semibold ${member.status === "suspended" ? "text-red-600" : "text-emerald-600"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${member.status === "suspended" ? "bg-red-500" : "bg-emerald-500"}`} />
+                        {member.status === "suspended" ? "Revoked" : "Active"}
+                      </span>
+                    </td>
+                    {(canManageApprovers || canRevokeOrDelete) && (
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {canManageApprovers && member.role !== "admin" && (
+                            <>
+                              <button
+                                onClick={() => toggleApproverRole(member, "approver")}
+                                disabled={isBusy}
+                                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all disabled:opacity-50 ${
+                                  member.role === "approver" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-600 hover:bg-violet-50"
+                                }`}
+                              >
+                                {member.role === "approver" ? "Unset Approver" : "Make Approver"}
+                              </button>
+                              <button
+                                onClick={() => toggleApproverRole(member, "department_head")}
+                                disabled={isBusy}
+                                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all disabled:opacity-50 ${
+                                  member.role === "department_head" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600 hover:bg-amber-50"
+                                }`}
+                              >
+                                {member.role === "department_head" ? "Unset Dept Head" : "Make Dept Head"}
+                              </button>
+                            </>
+                          )}
+                          {canRevokeOrDelete && member.role !== "admin" && !isSelf && (
+                            <>
+                              <button
+                                onClick={() => toggleRevoke(member)}
+                                disabled={isBusy}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700 transition-all disabled:opacity-50"
+                              >
+                                {member.status === "suspended" ? "Restore Rights" : "Revoke Rights"}
+                              </button>
+                              <button
+                                onClick={() => deleteMember(member)}
+                                disabled={isBusy}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-all disabled:opacity-50"
+                              >
+                                {isBusy ? <Spinner /> : "Delete"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+
+      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} companyId={companyId} myId={myId} />
+    </div>
+  );
+};
+
+const InviteModal = ({ open, onClose, companyId, myId }) => {
+  const [email, setEmail] = useState("");
+  const [department, setDepartment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  if (!open) return null;
+
+  const reset = () => {
+    setEmail(""); setDepartment(""); setError(""); setInviteLink(""); setCopied(false);
+  };
+
+  const close = () => { reset(); onClose(); };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/employee/invite", {
+        email, department, company_id: companyId, invited_by: myId,
+      });
+      const fullLink = `${window.location.origin}${res.data.inviteLink}`;
+      setInviteLink(fullLink);
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not create invite.");
+    } finally { setLoading(false); }
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-modal max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-slate-900 text-lg">Invite a team member</h3>
+          <button onClick={close} className="text-slate-400 hover:text-slate-600">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {inviteLink ? (
+          <div className="space-y-4">
+            <p className="text-sm text-emerald-600 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Invite created — share this link with {email}. It expires in 24 hours.
+            </p>
+            <div className="flex items-center gap-2">
+              <input readOnly value={inviteLink} className="input-field text-xs flex-1" />
+              <button type="button" onClick={copyLink} className="btn-secondary whitespace-nowrap">
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              No email delivery is configured yet, so the link isn't sent automatically — share it directly.
+            </p>
+            <button onClick={close} className="btn-primary w-full">Done</button>
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} className="space-y-4">
+            {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+            <div>
+              <label className="label">Email address</label>
+              <input type="email" required className="input-field" placeholder="colleague@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Department (optional)</label>
+              <input type="text" className="input-field" placeholder="e.g. Finance" value={department} onChange={(e) => setDepartment(e.target.value)} />
+            </div>
+            <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
+              {loading ? "Creating invite..." : "Generate invite link"}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../../utilis/api";
 import { setSession } from "../../../utilis/storage";
 
 const EmployeeSignUp = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+
   const [departmentList, setDepartmentList] = useState([]);
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [codeVerified, setCodeVerified] = useState(false);
   const [showPass, setShowPass] = useState(false);
+
+  const [inviteChecked, setInviteChecked] = useState(!inviteToken);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteLocked, setInviteLocked] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: "", lastName: "", department: "",
@@ -19,19 +26,54 @@ const EmployeeSignUp = () => {
 
   const { firstName, lastName, companyCode, department, email, password, confirm } = formData;
 
+  // Resolve the invite token (if present) and lock the fields it provides
   useEffect(() => {
-    console.log(companyCode)
+    if (!inviteToken) return;
+    const resolveInvite = async () => {
+      try {
+        const res = await api.get(`/employee/invite/${inviteToken}`);
+        setFormData((prev) => ({
+          ...prev,
+          email: res.data.email,
+          department: res.data.department || prev.department,
+          companyCode: res.data.company_code,
+        }));
+        setCompanyName(res.data.company_name || "");
+        setCodeVerified(true);
+        setInviteLocked(true);
+      } catch (err) {
+        setInviteError(err.response?.data?.message || "This invite link is invalid or has expired.");
+      } finally {
+        setInviteChecked(true);
+      }
+    };
+    resolveInvite();
+  }, [inviteToken]);
+
+  useEffect(() => {
+    if (inviteToken) return; // invite already resolved company code/departments
     if (companyCode.length < 6) { setDepartmentList([]); setCompanyName(""); setCodeVerified(false); return; }
     const fetch = async () => {
       try {
-        const deptRes = await 
-          api.get(`/department/get_department/${companyCode}`);
+        const deptRes = await api.get(`/department/get_department/${companyCode}`);
         setDepartmentList(deptRes?.data || []);
         setCodeVerified(true);
       } catch { setCodeVerified(false); setDepartmentList([]); setCompanyName(""); }
     };
     fetch();
-  }, [companyCode]);
+  }, [companyCode, inviteToken]);
+
+  // Load departments for the invited company too, once the code is known
+  useEffect(() => {
+    if (!inviteLocked || !companyCode) return;
+    const fetch = async () => {
+      try {
+        const deptRes = await api.get(`/department/get_department/${companyCode}`);
+        setDepartmentList(deptRes?.data || []);
+      } catch { setDepartmentList([]); }
+    };
+    fetch();
+  }, [inviteLocked, companyCode]);
 
   const onChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -39,15 +81,36 @@ const EmployeeSignUp = () => {
     e.preventDefault();
     if (password !== confirm) { setError("Passwords do not match."); return; }
     setLoading(true); setError("");
-    console.log(formData)
     try {
-      const res = await api.post("/auth/employee_register", formData);
+      const payload = inviteToken ? { ...formData, inviteToken } : formData;
+      const res = await api.post("/auth/employee_register", payload);
       setSession({ user: res.data.user, token: res.data.token, refreshToken: res.data.refreshToken });
       navigate("/employeedashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");
     } finally { setLoading(false); }
   };
+
+  if (inviteToken && !inviteChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <svg className="w-6 h-6 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (inviteToken && inviteError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+        <p className="font-bold text-slate-900 text-lg mb-2">Invite link unavailable</p>
+        <p className="text-slate-500 mb-6">{inviteError}</p>
+        <Link to="/pickuser" className="font-semibold text-brand-600 hover:text-brand-700">Go back</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex font-sans">
@@ -124,7 +187,7 @@ const EmployeeSignUp = () => {
             <div>
               <label className="label">Company Code</label>
               <div className="relative">
-                <input name="companyCode" type="text" required className="input-field pr-10" placeholder="Enter 6-digit code" value={companyCode} onChange={onChange} />
+                <input name="companyCode" type="text" required disabled={inviteLocked} className="input-field pr-10 disabled:bg-slate-100 disabled:text-slate-400" placeholder="Enter 6-digit code" value={companyCode} onChange={onChange} />
                 {codeVerified && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -169,7 +232,7 @@ const EmployeeSignUp = () => {
             {/* Email */}
             <div>
               <label className="label">Work Email</label>
-              <input name="email" type="email" required className="input-field" placeholder="jane@company.com" value={email} onChange={onChange} />
+              <input name="email" type="email" required disabled={inviteLocked} className="input-field disabled:bg-slate-100 disabled:text-slate-400" placeholder="jane@company.com" value={email} onChange={onChange} />
             </div>
 
             {/* Password */}
