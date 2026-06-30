@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../../utilis/api";
 import { getToken } from "../../../utilis/storage";
 
 const statusConfig = {
@@ -23,7 +23,7 @@ const RequestDetails = () => {
   useEffect(() => {
     const fetchRequest = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/request/page/${id}`, {
+        const res = await api.get(`/request/page/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (typeof res.data === "string") {

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../../utilis/api";
 import { useNavigate } from "react-router-dom";
 import { getFormattedDate } from "../../../utilis/functions";
-import { getId, getToken, getDisplayName } from "../../../utilis/storage";
+import { getId, getToken, getDisplayName, getRole, getCompanyId } from "../../../utilis/storage";
 
 const StatCard = ({ title, value, icon, colorClass, change, up }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 flex flex-col gap-4 hover:shadow-card-hover transition-shadow duration-200">
@@ -38,11 +38,97 @@ const statusBadge = (status) => {
   return <span className={cls}><span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />{status || "Pending"}</span>;
 };
 
+const Spinner = () => (
+  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  </svg>
+);
+
+const EmployeesPanel = () => {
+  const companyId = getCompanyId();
+  const token = getToken();
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/company/get_company/${companyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setEmployees(res.data?.employees || []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const toggleApprover = async (employee) => {
+    setTogglingId(employee._id);
+    const isApprover = employee.role === "approver";
+    try {
+      await api.post(
+        `/approver/${isApprover ? "unassign" : "assign"}`,
+        { company_id: companyId, employee_id: employee._id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await load();
+    } catch (e) { console.error(e); }
+    finally { setTogglingId(null); }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
+      <div className="px-6 py-5 border-b border-slate-100">
+        <h2 className="font-bold text-slate-900">Employees</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Quickly appoint or remove approvers for your organization</p>
+      </div>
+      {loading ? (
+        <div className="p-8 flex items-center justify-center gap-2 text-slate-400 text-sm"><Spinner />Loading employees...</div>
+      ) : employees.length === 0 ? (
+        <div className="p-8 text-center text-sm text-slate-400">No employees yet.</div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {employees.map((emp) => {
+            const isApprover = emp.role === "approver";
+            return (
+              <div key={emp._id} className="flex items-center gap-3 px-6 py-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {(emp.name || emp.email)[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 capitalize truncate">{emp.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{emp.email} · {emp.department}</p>
+                </div>
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${isApprover ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-600"}`}>
+                  {emp.role}
+                </span>
+                <button
+                  onClick={() => toggleApprover(emp)}
+                  disabled={togglingId === emp._id}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ${
+                    isApprover ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-brand-50 text-brand-600 hover:bg-brand-100"
+                  }`}
+                >
+                  {togglingId === emp._id ? <Spinner /> : isApprover ? "Remove Approver" : "Make Approver"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const [requestList, setRequestList] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = getDisplayName() || "User";
+  const role = getRole();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -51,7 +137,7 @@ const Home = () => {
       const id = getId();
       const token = getToken();
       try {
-        const res = await axios.get(`http://localhost:5000/api/employee/requests/${id}`, {
+        const res = await api.get(`/employee/requests/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setRequestList(res.data || []);
@@ -109,6 +195,8 @@ const Home = () => {
           icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         />
       </div>
+
+      {role === "admin" && <EmployeesPanel />}
 
       {/* Recent Requests */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card">

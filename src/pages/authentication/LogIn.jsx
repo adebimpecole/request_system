@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../utilis/api";
 import { useDispatch } from "react-redux";
 import { setUserDetails } from "../../reduxtoolkit/features/user/userSlice";
+import { setSession } from "../../utilis/storage";
 
 const LogIn = () => {
   const navigate = useNavigate();
@@ -21,10 +22,9 @@ const LogIn = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", formData);
+      const res = await api.post("/auth/login", formData);
       if (res.data.message?.toLowerCase() === "login successful") {
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-        localStorage.setItem("token", JSON.stringify(res.data.token));
+        setSession({ user: res.data.user, token: res.data.token, refreshToken: res.data.refreshToken });
         dispatch(setUserDetails({
           id: res.data.user.id,
           name: res.data.user.companyname,

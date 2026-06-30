@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../../utilis/api";
 import { getCompanyId, getRole, getToken } from "../../../utilis/storage";
 
 const roleColors = {
@@ -33,7 +33,7 @@ const Teams = () => {
       const role = getRole();
       const token = getToken();
       try {
-        const res = await axios.get(`http://localhost:5000/api/company/${companyid}`, {
+        const res = await api.get(`/company/get_employees/${companyid}`, {
           params: { role },
           headers: { Authorization: `Bearer ${token}` },
         });

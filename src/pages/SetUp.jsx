@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utilis/api";
 import { getId, getToken } from "../utilis/storage";
 import AddDepartments from "./setup/AddDepartments";
 import AddApprovers from "./setup/AddApprovers";
@@ -47,7 +47,7 @@ const SetUp = () => {
     const restore = async () => {
       setRestoring(true);
       try {
-        const res = await axios.get("http://localhost:5000/api/approver/get_approvers", {
+        const res = await api.get("/approver/get_approvers", {
           data: { company_id: id },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -130,22 +130,22 @@ const SetUp = () => {
 
     const calls = {
       1: {
-        url: "http://localhost:5000/api/department/add_department",
+        url: "/department/add_department",
         body: { company_id: id, departments: department.map((n) => ({ name: n })) },
         successMsg: `${department.length} department${department.length > 1 ? "s" : ""} saved successfully.`,
       },
       2: {
-        url: "http://localhost:5000/api/approver/add_approver",
+        url: "/approver/add_approver",
         body: { company_id: id, approvers: approver.map((e) => ({ email: e })) },
         successMsg: `${approver.length} approver${approver.length > 1 ? "s" : ""} saved successfully.`,
       },
       3: {
-        url: "http://localhost:5000/api/approver/add_role",
+        url: "/approver/add_role",
         body: { company_id: id, funding_authority: approverType.fund },
         successMsg: `Funding approver set to ${approverType.fund}.`,
       },
       4: {
-        url: "http://localhost:5000/api/approver/add_role",
+        url: "/approver/add_role",
         body: { company_id: id, verification_authority: approverType.vet },
         successMsg: `Vetting approver set to ${approverType.vet}.`,
       },
@@ -156,7 +156,7 @@ const SetUp = () => {
       setLoading(true);
       setStepStatus(null);
       try {
-        await axios.post(call.url, call.body, {
+        await api.post(call.url, call.body, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

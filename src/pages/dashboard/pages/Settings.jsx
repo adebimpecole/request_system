@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { getId, getToken, getRole, getEmail, getDisplayName, getUser } from "../../../utilis/storage";
+import api from "../../../utilis/api";
+import { getId, getToken, getRole, getEmail, getDisplayName, getUser, getCompanyId } from "../../../utilis/storage";
 
 const avatarColors = "from-brand-400 to-brand-700";
 
@@ -28,56 +28,64 @@ const Spinner = () => (
 );
 
 // ─── Profile Tab ───────────────────────────────────────────────────────────────
-const ProfileTab = ({ userid, token, role, storedUser, initials }) => {
-  const [departmentList, setDepartmentList] = useState([]);
-  const [company, setCompany] = useState("");
+const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) => {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     firstname: "", lastname: "", department: "", email: "",
     oldpassword: "", newpassword: "", companyname: "",
-  });
+  };
+  const [formData, setFormData] = useState(emptyForm);
+  const [initialFormData, setInitialFormData] = useState(emptyForm);
   const { firstname, lastname, department, email, oldpassword, newpassword, companyname } = formData;
   const onChange = (e) => setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   useEffect(() => {
+    if (role === "admin") {
+      const user = getUser();
+      const next = { ...emptyForm, companyname: user.company_name || "" };
+      setFormData(next);
+      setInitialFormData(next);
+      return;
+    }
     const load = async () => {
       try {
-        const userRes = await axios.get(`http://localhost:5000/api/employee/${userid}`, {
+        const userRes = await api.get(`/employee/${userid}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const companycode = userRes.data.companyid || userRes.data._id;
-        const [deptRes, compRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/department/get_department/${companycode}`).catch(() => ({ data: [] })),
-          axios.get(`http://localhost:5000/api/company/get_company/${companycode}`).catch(() => ({ data: {} })),
-        ]);
-        setDepartmentList(deptRes?.data || []);
-        setCompany(compRes.data.company_name || compRes.data.companyname || "");
-        setFormData((prev) => ({
-          ...prev,
-          firstname: userRes.data.firstname || "",
-          lastname: userRes.data.lastname || "",
+        const next = {
+          ...emptyForm,
+          firstname: userRes.data.first_name || userRes.data.firstname || "",
+          lastname: userRes.data.last_name || userRes.data.lastname || "",
           email: userRes.data.email || "",
           department: userRes.data.department || "",
-        }));
+        };
+        setFormData(next);
+        setInitialFormData(next);
       } catch (e) { console.error(e); }
     };
     load();
   }, []);
+
+  const isDirty = Object.keys(formData).some((key) => formData[key] !== initialFormData[key]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     const filtered = Object.fromEntries(Object.entries(formData).filter(([, v]) => v.trim() !== ""));
     try {
-      await axios.post(`http://localhost:5000/api/employee/${userid}`, filtered, {
+      await api.post(`/employee/${userid}`, filtered, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      setInitialFormData(formData);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
+
+  const departmentList = companyData?.departments || [];
+  const companyName = companyData?.company?.company_name || "";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -92,10 +100,10 @@ const ProfileTab = ({ userid, token, role, storedUser, initials }) => {
           <div className="mt-3">
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 ring-1 ring-brand-200 capitalize">{role}</span>
           </div>
-          {company && (
+          {companyName && (
             <div className="mt-4 pt-4 border-t border-slate-100">
               <p className="text-xs text-slate-500">Organization</p>
-              <p className="text-sm font-semibold text-slate-800 capitalize mt-1">{company}</p>
+              <p className="text-sm font-semibold text-slate-800 capitalize mt-1">{companyName}</p>
             </div>
           )}
           <div className="mt-4 pt-4 border-t border-slate-100 text-left space-y-2">
@@ -122,16 +130,16 @@ const ProfileTab = ({ userid, token, role, storedUser, initials }) => {
               </svg>
             } />
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label">First Name</label>
-                <input name="firstname" type="text" className="input-field" placeholder="Jane" value={firstname} onChange={onChange} />
-              </div>
-              <div>
-                <label className="label">Last Name</label>
-                <input name="lastname" type="text" className="input-field" placeholder="Doe" value={lastname} onChange={onChange} />
-              </div>
               {role !== "admin" && (
                 <>
+                  <div>
+                    <label className="label">First Name</label>
+                    <input name="firstname" type="text" className="input-field" placeholder="Jane" value={firstname} onChange={onChange} />
+                  </div>
+                  <div>
+                    <label className="label">Last Name</label>
+                    <input name="lastname" type="text" className="input-field" placeholder="Doe" value={lastname} onChange={onChange} />
+                  </div>
                   <div className="col-span-2">
                     <label className="label">Email Address</label>
                     <input name="email" type="email" className="input-field" value={email} onChange={onChange} />
@@ -157,7 +165,7 @@ const ProfileTab = ({ userid, token, role, storedUser, initials }) => {
               )}
               <div className="col-span-2">
                 <label className="label">Organization</label>
-                <input type="text" className="input-field bg-slate-50 cursor-not-allowed text-slate-400 capitalize" value={company || "Loading..."} readOnly />
+                <input type="text" className="input-field bg-slate-50 cursor-not-allowed text-slate-400 capitalize" value={companyName || "Loading..."} readOnly />
               </div>
             </div>
           </div>
@@ -182,14 +190,16 @@ const ProfileTab = ({ userid, token, role, storedUser, initials }) => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <SaveBanner show={saved} />
-            <div className="ml-auto">
-              <button type="submit" disabled={loading} className="btn-primary disabled:opacity-60">
-                {loading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Changes"}
-              </button>
+          {(isDirty || saved) && (
+            <div className="flex items-center justify-between">
+              <SaveBanner show={saved} />
+              <div className="ml-auto">
+                <button type="submit" disabled={loading || !isDirty} className="btn-primary disabled:opacity-60">
+                  {loading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Changes"}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </form>
       </div>
     </div>
@@ -197,59 +207,33 @@ const ProfileTab = ({ userid, token, role, storedUser, initials }) => {
 };
 
 // ─── Organization Tab ──────────────────────────────────────────────────────────
-const OrganizationTab = ({ userid, token, role }) => {
-  const user = getUser();
-  const companyId = role === "admin" ? userid : user.companyid;
-  const companyCode = role === "admin" ? user.company_code : null;
-
-  const [budget, setBudget] = useState("");
+const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
+  const initialBudget = companyData?.company?.budget ?? "";
+  const [budget, setBudget] = useState(initialBudget);
   const [budgetSaved, setBudgetSaved] = useState(false);
   const [budgetLoading, setBudgetLoading] = useState(false);
+  const budgetDirty = String(budget) !== String(initialBudget);
 
-  const [departments, setDepartments] = useState([]);
+  const initialDepartments = (companyData?.departments || []).map((d) => d.name);
+  const [departments, setDepartments] = useState(initialDepartments);
   const [deptInput, setDeptInput] = useState("");
   const [deptSaved, setDeptSaved] = useState(false);
   const [deptLoading, setDeptLoading] = useState(false);
   const [deptError, setDeptError] = useState("");
+  const deptDirty = JSON.stringify([...departments].sort()) !== JSON.stringify([...initialDepartments].sort());
 
-  const [members, setMembers] = useState([]);
-  const [membersLoading, setMembersLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        // Load company data for budget
-        const compRes = await axios.get(`http://localhost:5000/api/employee/${userid}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setBudget(compRes.data.budget ?? "");
-
-        // Load departments
-        const code = companyCode || compRes.data.companyid || userid;
-        const deptRes = await axios.get(`http://localhost:5000/api/department/get_department/${code}`).catch(() => ({ data: [] }));
-        setDepartments((deptRes?.data || []).map((d) => d.name));
-
-        // Load members
-        const memRes = await axios.get(`http://localhost:5000/api/company/${companyId}`, {
-          params: { role },
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setMembers(memRes.data || []);
-      } catch (e) { console.error(e); }
-      finally { setMembersLoading(false); }
-    };
-    load();
-  }, []);
+  const members = companyData?.employees || [];
 
   const saveBudget = async () => {
     setBudgetLoading(true);
     try {
-      await axios.put(`http://localhost:5000/api/company/${companyId}`, { budget: Number(budget) }, {
+      await api.put(`/company/${companyId}`, { budget: Number(budget) }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setBudgetSaved(true);
       setTimeout(() => setBudgetSaved(false), 3000);
+      refresh();
     } catch (e) { console.error(e); }
     finally { setBudgetLoading(false); }
   };
@@ -271,12 +255,13 @@ const OrganizationTab = ({ userid, token, role }) => {
   const saveDepartments = async () => {
     setDeptLoading(true);
     try {
-      await axios.post("http://localhost:5000/api/department/add_department", {
+      await api.post("/department/add_department", {
         company_id: companyId,
         departments: departments.map((name) => ({ name })),
       }, { headers: { Authorization: `Bearer ${token}` } });
       setDeptSaved(true);
       setTimeout(() => setDeptSaved(false), 3000);
+      refresh();
     } catch (e) { console.error(e); }
     finally { setDeptLoading(false); }
   };
@@ -284,10 +269,10 @@ const OrganizationTab = ({ userid, token, role }) => {
   const deleteMember = async (memberId) => {
     setDeletingId(memberId);
     try {
-      await axios.delete(`http://localhost:5000/api/employee/${memberId}`, {
+      await api.delete(`/employee/${memberId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setMembers((p) => p.filter((m) => m._id !== memberId));
+      refresh();
     } catch (e) { console.error(e); }
     finally { setDeletingId(null); }
   };
@@ -311,9 +296,11 @@ const OrganizationTab = ({ userid, token, role }) => {
               value={budget} onChange={(e) => setBudget(e.target.value)}
             />
           </div>
-          <button onClick={saveBudget} disabled={budgetLoading} className="btn-primary disabled:opacity-60 whitespace-nowrap">
-            {budgetLoading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Budget"}
-          </button>
+          {(budgetDirty || budgetLoading) && (
+            <button onClick={saveBudget} disabled={budgetLoading} className="btn-primary disabled:opacity-60 whitespace-nowrap">
+              {budgetLoading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Budget"}
+            </button>
+          )}
         </div>
         {budgetSaved && <p className="text-emerald-600 text-sm mt-2 flex items-center gap-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Budget updated.</p>}
       </div>
@@ -351,12 +338,14 @@ const OrganizationTab = ({ userid, token, role }) => {
             ))}
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <SaveBanner show={deptSaved} />
-          <button onClick={saveDepartments} disabled={deptLoading || departments.length === 0} className="btn-primary disabled:opacity-60 ml-auto">
-            {deptLoading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Departments"}
-          </button>
-        </div>
+        {(deptDirty || deptSaved) && (
+          <div className="flex items-center justify-between">
+            <SaveBanner show={deptSaved} />
+            <button onClick={saveDepartments} disabled={deptLoading || !deptDirty || departments.length === 0} className="btn-primary disabled:opacity-60 ml-auto">
+              {deptLoading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Departments"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Members */}
@@ -366,22 +355,19 @@ const OrganizationTab = ({ userid, token, role }) => {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
           </svg>
         } />
-        {membersLoading ? (
-          <div className="flex items-center gap-2 text-slate-400 py-4"><Spinner /><span className="text-sm">Loading members...</span></div>
-        ) : members.length === 0 ? (
+        {members.length === 0 ? (
           <p className="text-sm text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">No team members yet.</p>
         ) : (
           <div className="divide-y divide-slate-100">
             {members.map((m) => {
-              const name = m.firstname && m.lastname ? `${m.firstname} ${m.lastname}` : m.email;
-              const ini = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+              const ini = (m.name || m.email).split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
               return (
                 <div key={m._id} className="flex items-center gap-3 py-3">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {ini}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 capitalize truncate">{name}</p>
+                    <p className="text-sm font-semibold text-slate-800 capitalize truncate">{m.name}</p>
                     <p className="text-xs text-slate-500 truncate">{m.email}</p>
                   </div>
                   <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 capitalize flex-shrink-0">{m.role}</span>
@@ -408,42 +394,50 @@ const OrganizationTab = ({ userid, token, role }) => {
 };
 
 // ─── Approvers Tab ─────────────────────────────────────────────────────────────
-const ApproversTab = ({ userid, token }) => {
-  const [approverList, setApproverList] = useState([]);
-  const [fundingApprover, setFundingApprover] = useState("");
-  const [vettingApprover, setVettingApprover] = useState("");
-  const [loading, setLoading] = useState(true);
+const ApproversTab = ({ companyId, token, companyData, refresh }) => {
+  const employees = companyData?.employees || [];
+  const approversData = companyData?.approvers || { approvers: [], funding_authority: null, verification_authority: null };
+  const approverEmails = (approversData.approvers || []).map((a) => a.email);
+
+  const [fundingApprover, setFundingApprover] = useState(approversData.funding_authority || "");
+  const [vettingApprover, setVettingApprover] = useState(approversData.verification_authority || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/api/approver/get_approvers", {
-          data: { company_id: userid },
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = res.data?.approvers;
-        if (data) {
-          setApproverList((data.approvers || []).map((a) => a.email));
-          setFundingApprover(data.funding_authority || "");
-          setVettingApprover(data.verification_authority || "");
-        }
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    };
-    load();
-  }, []);
+    setFundingApprover(approversData.funding_authority || "");
+    setVettingApprover(approversData.verification_authority || "");
+  }, [companyData]);
 
-  const save = async () => {
+  const rolesDirty =
+    fundingApprover !== (approversData.funding_authority || "") ||
+    vettingApprover !== (approversData.verification_authority || "");
+
+  const toggleApprover = async (employee) => {
+    setTogglingId(employee._id);
+    const isApprover = employee.role === "approver";
+    try {
+      await api.post(
+        `/approver/${isApprover ? "unassign" : "assign"}`,
+        { company_id: companyId, employee_id: employee._id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      refresh();
+    } catch (e) { console.error(e); }
+    finally { setTogglingId(null); }
+  };
+
+  const saveRoles = async () => {
     setSaving(true);
     try {
       await Promise.all([
-        axios.post("http://localhost:5000/api/approver/add_role", { company_id: userid, funding_authority: fundingApprover }, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.post("http://localhost:5000/api/approver/add_role", { company_id: userid, verification_authority: vettingApprover }, { headers: { Authorization: `Bearer ${token}` } }),
+        api.post("/approver/add_role", { company_id: companyId, funding_authority: fundingApprover }, { headers: { Authorization: `Bearer ${token}` } }),
+        api.post("/approver/add_role", { company_id: companyId, verification_authority: vettingApprover }, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      refresh();
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
   };
@@ -466,68 +460,95 @@ const ApproversTab = ({ userid, token }) => {
     </button>
   );
 
-  if (loading) return (
-    <div className="flex items-center gap-2 text-slate-400 py-8"><Spinner /><span className="text-sm">Loading approvers...</span></div>
-  );
-
-  if (approverList.length === 0) return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-8 text-center text-slate-400 text-sm">
-      No approvers have been added yet. Go to the <span className="font-semibold text-brand-600">Organization</span> tab to add approvers first.
-    </div>
-  );
-
   return (
     <div className="space-y-6">
+      {/* Promote / demote approvers */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-        <SectionHeader label="Funding Approver" color="bg-amber-50 text-amber-600" icon={
+        <SectionHeader label="Manage Approvers" color="bg-violet-50 text-violet-600" icon={
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.75a1.125 1.125 0 00-1.125 1.125V18.75m3-3.375v-1.5c0-.621-.504-1.125-1.125-1.125h-.75A1.125 1.125 0 0013.5 13.875v1.5m-4.5-1.5v1.5" />
           </svg>
         } />
-        <p className="text-sm text-slate-500 mb-4">Select the approver responsible for funding decisions.</p>
-        <div className="space-y-2">
-          {approverList.map((email) => (
-            <ApproverCard key={email} email={email} selected={fundingApprover === email} onSelect={setFundingApprover} />
-          ))}
-        </div>
-        {fundingApprover && (
-          <div className="mt-4 flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {fundingApprover} selected as funding approver
+        <p className="text-sm text-slate-500 mb-4">Toggle which employees can act as approvers in your organization.</p>
+        {employees.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">No employees yet.</p>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {employees.map((emp) => {
+              const isApprover = emp.role === "approver";
+              return (
+                <div key={emp._id} className="flex items-center gap-3 py-3">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {(emp.name || emp.email)[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 capitalize truncate">{emp.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{emp.email}</p>
+                  </div>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${isApprover ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-600"}`}>
+                    {emp.role}
+                  </span>
+                  <button
+                    onClick={() => toggleApprover(emp)}
+                    disabled={togglingId === emp._id}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ${
+                      isApprover ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-brand-50 text-brand-600 hover:bg-brand-100"
+                    }`}
+                  >
+                    {togglingId === emp._id ? <Spinner /> : isApprover ? "Remove Approver" : "Make Approver"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-        <SectionHeader label="Vetting Approver" color="bg-sky-50 text-sky-600" icon={
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-          </svg>
-        } />
-        <p className="text-sm text-slate-500 mb-4">Select the approver responsible for vetting and verification.</p>
-        <div className="space-y-2">
-          {approverList.map((email) => (
-            <ApproverCard key={email} email={email} selected={vettingApprover === email} onSelect={setVettingApprover} />
-          ))}
+      {/* Funding / vetting reassignment */}
+      {approverEmails.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-8 text-center text-slate-400 text-sm">
+          Promote at least one employee to approver above before assigning funding and vetting roles.
         </div>
-        {vettingApprover && (
-          <div className="mt-4 flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {vettingApprover} selected as vetting approver
+      ) : (
+        <>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+            <SectionHeader label="Funding Approver" color="bg-amber-50 text-amber-600" icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+              </svg>
+            } />
+            <p className="text-sm text-slate-500 mb-4">Select the approver responsible for funding decisions.</p>
+            <div className="space-y-2">
+              {approverEmails.map((email) => (
+                <ApproverCard key={email} email={email} selected={fundingApprover === email} onSelect={setFundingApprover} />
+              ))}
+            </div>
           </div>
-        )}
-      </div>
 
-      <div className="flex items-center justify-between">
-        <SaveBanner show={saved} />
-        <button onClick={save} disabled={saving || !fundingApprover || !vettingApprover} className="btn-primary disabled:opacity-60 ml-auto">
-          {saving ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Approvers"}
-        </button>
-      </div>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+            <SectionHeader label="Vetting Approver" color="bg-sky-50 text-sky-600" icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            } />
+            <p className="text-sm text-slate-500 mb-4">Select the approver responsible for vetting and verification.</p>
+            <div className="space-y-2">
+              {approverEmails.map((email) => (
+                <ApproverCard key={email} email={email} selected={vettingApprover === email} onSelect={setVettingApprover} />
+              ))}
+            </div>
+          </div>
+
+          {(rolesDirty || saved) && (
+            <div className="flex items-center justify-between">
+              <SaveBanner show={saved} />
+              <button onClick={saveRoles} disabled={saving || !rolesDirty || !fundingApprover || !vettingApprover} className="btn-primary disabled:opacity-60 ml-auto">
+                {saving ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Approver Roles"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -537,11 +558,28 @@ const Settings = () => {
   const userid = getId();
   const token = getToken();
   const role = getRole();
+  const companyId = getCompanyId();
   const storedUser = getDisplayName();
   const initials = storedUser.split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
   const isAdmin = role === "admin";
   const isAdminOrApprover = role === "admin" || role === "approver";
+
+  const [companyData, setCompanyData] = useState(null);
+  const [companyLoading, setCompanyLoading] = useState(true);
+
+  const loadCompany = async () => {
+    setCompanyLoading(true);
+    try {
+      const res = await api.get(`/company/get_company/${companyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCompanyData(res.data);
+    } catch (e) { console.error(e); }
+    finally { setCompanyLoading(false); }
+  };
+
+  useEffect(() => { loadCompany(); }, []);
 
   const tabs = [
     { key: "profile", label: "Profile" },
@@ -575,14 +613,20 @@ const Settings = () => {
         ))}
       </div>
 
-      {activeTab === "profile" && (
-        <ProfileTab userid={userid} token={token} role={role} storedUser={storedUser} initials={initials} />
-      )}
-      {activeTab === "organization" && isAdminOrApprover && (
-        <OrganizationTab userid={userid} token={token} role={role} />
-      )}
-      {activeTab === "approvers" && isAdmin && (
-        <ApproversTab userid={userid} token={token} />
+      {companyLoading ? (
+        <div className="flex items-center gap-2 text-slate-400 py-12"><Spinner /><span className="text-sm">Loading...</span></div>
+      ) : (
+        <>
+          {activeTab === "profile" && (
+            <ProfileTab userid={userid} token={token} role={role} storedUser={storedUser} initials={initials} companyData={companyData} />
+          )}
+          {activeTab === "organization" && isAdminOrApprover && (
+            <OrganizationTab companyId={companyId} token={token} companyData={companyData} refresh={loadCompany} />
+          )}
+          {activeTab === "approvers" && isAdmin && (
+            <ApproversTab companyId={companyId} token={token} companyData={companyData} refresh={loadCompany} />
+          )}
+        </>
       )}
     </div>
   );

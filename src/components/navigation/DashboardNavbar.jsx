@@ -6,7 +6,8 @@ import {
   setToogleNotification,
 } from "../../reduxtoolkit/features/modal/modalSlice";
 import NotificationCard from "../cards/NotificationCard";
-import { getDisplayName } from "../../utilis/storage";
+import { getDisplayName, getRefreshToken, clearSession } from "../../utilis/storage";
+import api from "../../utilis/api";
 
 const DashboardNavbar = () => {
   const dispatch = useDispatch();
@@ -26,9 +27,15 @@ const DashboardNavbar = () => {
     dispatch(setToogleNotification(!toggleNotification));
   };
 
-  const Logout = () => {
-    localStorage.clear();
-    navigate("/login");
+  const Logout = async () => {
+    const refreshToken = getRefreshToken();
+    try {
+      if (refreshToken) await api.post("/auth/logout", { refreshToken });
+    } catch (e) { console.error(e); }
+    finally {
+      clearSession();
+      navigate("/login");
+    }
   };
   return (
     <div className="lg:px-8 sm:px-6 sm:gap-x-6 shadow-gray-100 px-4 bg-white border-b gap-x-4 border-gray-200 items-center flex-shrink-0 h-16 flex z-40 top-0 sticky">

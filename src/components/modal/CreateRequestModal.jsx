@@ -3,7 +3,7 @@ import ModalWrapper from "./ModalWrapper";
 import { useDispatch, useSelector } from "react-redux";
 import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSlice";
 import { getDate } from "../../utilis/functions";
-import axios from "axios";
+import api from "../../utilis/api";
 import { v4 as uuidv4 } from "uuid";
 import { getId, getToken } from "../../utilis/storage";
 
@@ -55,8 +55,8 @@ const CreateRequestModal = () => {
     e.preventDefault();
 
     try {
-      const res = await axios.post(
-        "http://localhost:5000/api/request/new_request",
+      const res = await api.post(
+        "/request/new_request",
         formData,
         {
           headers: {

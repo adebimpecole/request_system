@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Button from "../buttons/Button";
-import axios from "axios";
+import api from "../../utilis/api";
 import Spinner from "../Spinner";
 import { getId, getToken, getRole } from "../../utilis/storage";
 
@@ -15,8 +15,8 @@ const ProfileCard = () => {
 
       try {
         if (role == "admin") {
-          const res = await axios.get(
-            `http://localhost:5000/api/employee/${userid}`,
+          const res = await api.get(
+            `/employee/${userid}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -25,8 +25,8 @@ const ProfileCard = () => {
           );
           return res;
         } else {
-          const res = await axios.get(
-            `http://localhost:5000/api/company/get_company/${userid}`,
+          const res = await api.get(
+            `/company/get_company/${userid}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

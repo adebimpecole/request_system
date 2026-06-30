@@ -4,7 +4,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSlice";
 import CreateRequestModal from "../../components/modal/CreateRequestModal";
 import InviteMember from "../../components/modal/InviteMember";
-import { getDisplayName, getRole } from "../../utilis/storage";
+import { getDisplayName, getRole, getRefreshToken, clearSession } from "../../utilis/storage";
+import api from "../../utilis/api";
 
 const navItems = [
   {
@@ -66,9 +67,15 @@ const Dashboard = () => {
   const user = getDisplayName() || "User";
   const role = getRole();
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
+  const handleLogout = async () => {
+    const refreshToken = getRefreshToken();
+    try {
+      if (refreshToken) await api.post("/auth/logout", { refreshToken });
+    } catch (e) { console.error(e); }
+    finally {
+      clearSession();
+      navigate("/login");
+    }
   };
 
   const initials = user.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();

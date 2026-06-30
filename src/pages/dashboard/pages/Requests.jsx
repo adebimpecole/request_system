@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../../utilis/api";
 import { getFormattedDate } from "../../../utilis/functions";
 import { setToogleRequestModal } from "../../../reduxtoolkit/features/modal/modalSlice";
 import { getCompanyId, getRole, getToken } from "../../../utilis/storage";
@@ -34,7 +34,7 @@ const Requests = () => {
       const role = getRole();
       const token = getToken();
       try {
-        const res = await axios.get(`http://localhost:5000/api/company/requests/${id}`, {
+        const res = await api.get(`/company/requests/${id}`, {
           params: { role },
           headers: { Authorization: `Bearer ${token}` },
         });

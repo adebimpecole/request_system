@@ -8,12 +8,28 @@ export const getToken = () => {
   catch { return ""; }
 };
 
+export const getRefreshToken = () => {
+  try { return JSON.parse(localStorage.getItem("refreshToken")) || ""; }
+  catch { return ""; }
+};
+
+export const setSession = ({ user, token, refreshToken }) => {
+  localStorage.setItem("user", JSON.stringify(user));
+  localStorage.setItem("token", JSON.stringify(token));
+  if (refreshToken) localStorage.setItem("refreshToken", JSON.stringify(refreshToken));
+};
+
+export const setToken = (token) => localStorage.setItem("token", JSON.stringify(token));
+export const setRefreshToken = (refreshToken) => localStorage.setItem("refreshToken", JSON.stringify(refreshToken));
+
+export const clearSession = () => localStorage.clear();
+
 export const getId = () => getUser().id || "";
 export const getRole = () => getUser().role || "";
 export const getEmail = () => getUser().email || "";
-export const getCompanyId = () => getUser().companyid || getUser().id || "";
+export const getCompanyId = () => getUser().company_id || getUser().id || "";
 export const getDisplayName = () => {
   const u = getUser();
-  if (u.firstname) return `${u.firstname} ${u.lastname || ""}`.trim();
+  if (u.first_name) return `${u.first_name} ${u.last_name || ""}`.trim();
   return u.company_name || "";
 };

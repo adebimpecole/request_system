@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../../utilis/api";
+import { setSession } from "../../../utilis/storage";
 
 const EmployeeSignUp = () => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const EmployeeSignUp = () => {
     const fetch = async () => {
       try {
         const deptRes = await 
-          axios.get(`http://localhost:5000/api/department/get_department/${companyCode}`);
+          api.get(`/department/get_department/${companyCode}`);
         setDepartmentList(deptRes?.data || []);
         setCodeVerified(true);
       } catch { setCodeVerified(false); setDepartmentList([]); setCompanyName(""); }
@@ -40,9 +41,8 @@ const EmployeeSignUp = () => {
     setLoading(true); setError("");
     console.log(formData)
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/employee_register", formData);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      localStorage.setItem("token", JSON.stringify(res.data.token));
+      const res = await api.post("/auth/employee_register", formData);
+      setSession({ user: res.data.user, token: res.data.token, refreshToken: res.data.refreshToken });
       navigate("/employeedashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");

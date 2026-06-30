@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../../utilis/api";
 import { generateRandomCode } from "../../../utilis/functions";
+import { setSession } from "../../../utilis/storage";
 
 const BrandPanel = () => (
   <div className="hidden lg:flex lg:w-5/12 bg-hero-gradient flex-col justify-between p-12 relative overflow-hidden">
@@ -61,9 +62,8 @@ const BusinessSignUp = () => {
     setError("");
     try {
       const updatedFormData = { ...formData, company_code: generateRandomCode(6) };
-      const res = await axios.post("http://localhost:5000/api/auth/company_register", updatedFormData);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      localStorage.setItem("token", JSON.stringify(res.data.token));
+      const res = await api.post("/auth/company_register", updatedFormData);
+      setSession({ user: res.data.user, token: res.data.token, refreshToken: res.data.refreshToken });
       navigate("/setup");
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed. Please try again.");
