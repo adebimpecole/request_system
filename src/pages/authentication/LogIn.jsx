@@ -23,18 +23,20 @@ const LogIn = () => {
     setError("");
     try {
       const res = await api.post("/auth/login", formData);
-      if (res.data.message?.toLowerCase() === "login successful") {
-        setSession({ user: res.data.user, token: res.data.token, refreshToken: res.data.refreshToken });
-        dispatch(setUserDetails({
-          id: res.data.user.id,
-          name: res.data.user.companyname,
-          email: res.data.user.email,
-          role: res.data.user.role,
-          company: res.data.user.companyname,
-          token: res.data.token,
-        }));
-        navigate("/employeedashboard");
+      if (!res.data.token) {
+        setError(res.data.message || "Login failed. Please try again.");
+        return;
       }
+      setSession({ user: res.data.user, token: res.data.token, refreshToken: res.data.refreshToken });
+      dispatch(setUserDetails({
+        id: res.data.user.id,
+        name: res.data.user.companyname,
+        email: res.data.user.email,
+        role: res.data.user.role,
+        company: res.data.user.companyname,
+        token: res.data.token,
+      }));
+      navigate("/employeedashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Invalid email or password. Please try again.");
     } finally {

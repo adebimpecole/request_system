@@ -5,7 +5,7 @@ import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSl
 import { getDate } from "../../utilis/functions";
 import api from "../../utilis/api";
 import { v4 as uuidv4 } from "uuid";
-import { getId, getToken } from "../../utilis/storage";
+import { getId, getCompanyId, getUser } from "../../utilis/storage";
 
 const CreateRequestModal = () => {
   const dispatch = useDispatch();
@@ -17,22 +17,22 @@ const CreateRequestModal = () => {
   // const id = useSelector((state) => state.user.id);
 
   const id = getId();
-  const token = getToken();
+  const user = getUser();
 
   const [formData, setFormData] = useState({
     title: "",
     amount: "",
     category: "",
     description: "",
-    userid: id,
-    companyid: id,
-    requestid: "",
+    user_id: id,
+    company_id: getCompanyId(),
+    request_id: "",
     messages: [],
     status: "pending",
-    department: "company",
-    approvalIndex: 0,
+    department: user.department || "",
+    approval_index: 0,
     proof: "",
-    dateCreated: "",
+    date_created: "",
   });
 
   const { title, amount, category, description } = formData;
@@ -43,8 +43,8 @@ const CreateRequestModal = () => {
 
     setFormData((prevFormData) => ({
       ...prevFormData,
-      requestid: shortId,
-      dateCreated: date,
+      request_id: shortId,
+      date_created: date,
     }));
   }, [id]);
 
@@ -55,15 +55,7 @@ const CreateRequestModal = () => {
     e.preventDefault();
 
     try {
-      const res = await api.post(
-        "/request/new_request",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await api.post("/request/new_request", formData);
       dispatch(setToogleRequestModal(false));
     } catch (err) {
       console.error(err);

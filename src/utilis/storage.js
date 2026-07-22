@@ -24,6 +24,18 @@ export const setRefreshToken = (refreshToken) => localStorage.setItem("refreshTo
 
 export const clearSession = () => localStorage.clear();
 
+// Decode JWT exp field without verifying the signature — fast client-side check
+export const isTokenExpired = () => {
+  try {
+    const token = getToken();
+    if (!token) return true;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+};
+
 export const getId = () => getUser().id || "";
 export const getRole = () => getUser().role || "";
 export const getEmail = () => getUser().email || "";

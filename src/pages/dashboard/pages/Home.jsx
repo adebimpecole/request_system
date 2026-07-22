@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import api from "../../../utilis/api";
 import { useNavigate } from "react-router-dom";
 import { getFormattedDate } from "../../../utilis/functions";
-import { getId, getToken, getDisplayName, getRole, getCompanyId } from "../../../utilis/storage";
+import { getId, getDisplayName, getRole, getCompanyId } from "../../../utilis/storage";
 
 const StatCard = ({ title, value, icon, colorClass, change, up }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 flex flex-col gap-4 hover:shadow-card-hover transition-shadow duration-200">
@@ -125,7 +125,8 @@ const EmployeesPanel = () => {
 
 const Home = () => {
   const navigate = useNavigate();
-  const [requestList, setRequestList] = useState([]);
+  const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, totalAmount: 0 });
+  const [recentRequests, setRecentRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = getDisplayName() || "User";
   const role = getRole();
@@ -133,24 +134,23 @@ const Home = () => {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      const id = getId();
-      const token = getToken();
+    const load = async () => {
+      const companyId = getCompanyId();
+      const myId = getId();
       try {
-        const res = await api.get(`/employee/requests/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setRequestList(res.data || []);
+        const [statsRes, recentRes] = await Promise.all([
+          api.get(`/request/stats/${companyId}`),
+          api.get(`/employee/requests/${myId}`),
+        ]);
+        setStats(statsRes.data || {});
+        setRecentRequests(recentRes.data || []);
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     };
-    fetchRequests();
+    load();
   }, []);
 
-  const total = requestList.length;
-  const approved = requestList.filter(r => r.status?.toLowerCase() === "approved").length;
-  const pending = requestList.filter(r => !r.status || r.status?.toLowerCase() === "pending").length;
-  const totalAmount = requestList.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+  const { total, approved, pending, totalAmount } = stats;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -220,7 +220,7 @@ const Home = () => {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           </div>
-        ) : requestList.length === 0 ? (
+        ) : recentRequests.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -244,14 +244,14 @@ const Home = () => {
                 </tr>
               </thead>
               <tbody>
-                {requestList.slice(0, 8).map((data, i) => (
+                {recentRequests.slice(0, 8).map((data, i) => (
                   <tr
-                    key={data.requestid || i}
-                    onClick={() => navigate(`/employeedashboard/request-details/${data.requestid}`)}
+                    key={data.request_id || i}
+                    onClick={() => navigate(`/employeedashboard/request-details/${data.request_id}`)}
                     className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors group"
                   >
                     <td className="px-6 py-4 text-slate-400 text-xs">{i + 1}</td>
-                    <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">{getFormattedDate(data.dateCreated)}</td>
+                    <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">{getFormattedDate(data.date_created)}</td>
                     <td className="px-4 py-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{data.category}</span>
                     </td>
