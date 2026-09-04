@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import api from "../../../utilis/api";
 import { useNavigate } from "react-router-dom";
 import { getFormattedDate } from "../../../utilis/functions";
-import { getId, getDisplayName, getRole, getCompanyId } from "../../../utilis/storage";
+import { getId, getDisplayName, getRole, getCompanyId, getToken } from "../../../utilis/storage";
 
 const StatCard = ({ title, value, icon, colorClass, change, up }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 flex flex-col gap-4 hover:shadow-card-hover transition-shadow duration-200">

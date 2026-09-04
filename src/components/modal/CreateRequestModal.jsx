@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import ModalWrapper from "./ModalWrapper";
 import { useDispatch, useSelector } from "react-redux";
 import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSlice";
+import { pushAlert } from "../../reduxtoolkit/features/alert/alertSlice";
 import { getDate } from "../../utilis/functions";
 import api from "../../utilis/api";
 import { v4 as uuidv4 } from "uuid";
@@ -57,8 +58,12 @@ const CreateRequestModal = () => {
     try {
       await api.post("/request/new_request", formData);
       dispatch(setToogleRequestModal(false));
+      dispatch(pushAlert({ type: "success", message: "Request submitted successfully." }));
     } catch (err) {
-      console.error(err);
+      dispatch(pushAlert({
+        type: "error",
+        message: err.response?.data?.message || "Could not submit your request. Please try again.",
+      }));
     }
   };
 

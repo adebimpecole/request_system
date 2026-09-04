@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSlice";
+import { setToogleRequestModal, setToogleInviteModal } from "../../reduxtoolkit/features/modal/modalSlice";
 import CreateRequestModal from "../../components/modal/CreateRequestModal";
 import InviteMember from "../../components/modal/InviteMember";
 import { getDisplayName, getRole, getRefreshToken, clearSession } from "../../utilis/storage";
 import { disconnectSocket } from "../../utilis/socket";
 import NotificationBell from "../../components/NotificationBell";
 import api from "../../utilis/api";
+import { NON_REQUESTER_ROLES } from "../../utilis/roles";
 
 const navItems = [
   {
@@ -32,6 +33,7 @@ const navItems = [
   {
     to: "/employeedashboard/analytics",
     label: "Analytics",
+    roles: NON_REQUESTER_ROLES,
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
@@ -41,6 +43,7 @@ const navItems = [
   {
     to: "/employeedashboard/team",
     label: "Team",
+    roles: NON_REQUESTER_ROLES,
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
@@ -68,6 +71,7 @@ const Dashboard = () => {
 
   const user = getDisplayName() || "User";
   const role = getRole();
+  const visibleNavItems = navItems.filter((item) => !item.roles || item.roles.includes(role));
 
   const handleLogout = async () => {
     const refreshToken = getRefreshToken();
@@ -103,7 +107,7 @@ const Dashboard = () => {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="text-white/30 text-xs font-semibold uppercase tracking-widest px-3 mb-3">Menu</p>
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -123,8 +127,8 @@ const Dashboard = () => {
         ))}
       </nav>
 
-      {/* Create request CTA */}
-      <div className="px-3 pb-4">
+      {/* Create request / invite CTAs */}
+      <div className="px-3 pb-4 space-y-2">
         <button
           onClick={() => { dispatch(setToogleRequestModal(true)); setMobileOpen(false); }}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-400 text-white rounded-xl text-sm font-semibold transition-all duration-150 shadow-lg shadow-brand-900/40"
@@ -133,6 +137,15 @@ const Dashboard = () => {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
           New Request
+        </button>
+        <button
+          onClick={() => { dispatch(setToogleInviteModal(true)); setMobileOpen(false); }}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-sm font-semibold transition-all duration-150"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+          </svg>
+          Invite Member
         </button>
       </div>
 

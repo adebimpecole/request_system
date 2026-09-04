@@ -27,7 +27,7 @@ const Spinner = () => (
   </svg>
 );
 
-// ─── Profile Tab ───────────────────────────────────────────────────────────────
+// Profile Tab
 const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) => {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -206,7 +206,7 @@ const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) 
   );
 };
 
-// ─── Organization Tab ──────────────────────────────────────────────────────────
+//  Organization Tab 
 const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
   const initialBudget = companyData?.company?.budget ?? "";
   const [budget, setBudget] = useState(initialBudget);
@@ -393,7 +393,7 @@ const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
   );
 };
 
-// ─── Approvers Tab ─────────────────────────────────────────────────────────────
+// Approvers Tab 
 const ApproversTab = ({ companyId, token, companyData, refresh }) => {
   const employees = companyData?.employees || [];
   const approversData = companyData?.approvers || { approvers: [], funding_authority: null, verification_authority: null };
@@ -553,7 +553,7 @@ const ApproversTab = ({ companyId, token, companyData, refresh }) => {
   );
 };
 
-// ─── Main Settings ─────────────────────────────────────────────────────────────
+// Main Settings 
 const Settings = () => {
   const userid = getId();
   const token = getToken();
@@ -590,7 +590,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-4xl">
+    <div className="space-y-8 animate-fade-in">
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900">Settings</h1>
         <p className="text-slate-500 text-sm mt-1">Manage your profile and organization preferences</p>

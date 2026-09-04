@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
 import api from "../../../utilis/api";
 import { getCompanyId, getRole, getId } from "../../../utilis/storage";
+import { setToogleInviteModal } from "../../../reduxtoolkit/features/modal/modalSlice";
+import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
 
 const roleColors = {
   admin: "bg-brand-50 text-brand-700 ring-brand-200",
@@ -38,6 +41,7 @@ const Spinner = () => (
 const FILTERS = ["all", "admin", "department_head", "approver", "requester"];
 
 const Teams = () => {
+  const dispatch = useDispatch();
   const companyId = getCompanyId();
   const role = getRole();
   const myId = getId();
@@ -51,8 +55,6 @@ const Teams = () => {
   const [roleFilter, setRoleFilter] = useState("all");
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState("");
-
-  const [inviteOpen, setInviteOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -83,6 +85,13 @@ const Teams = () => {
         role: targetRole,
       });
       await load();
+      const roleLabel = targetRole === "department_head" ? "department head" : "approver";
+      dispatch(pushAlert({
+        type: "success",
+        message: isCurrentlyThatRole
+          ? `${member.name} is no longer a ${roleLabel}.`
+          : `${member.name} is now a ${roleLabel}.`,
+      }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Could not update role.");
     } finally { setBusyId(null); }
@@ -95,6 +104,10 @@ const Teams = () => {
     try {
       await api.post(`/employee/${member._id}/revoke`, { suspend });
       await load();
+      dispatch(pushAlert({
+        type: "success",
+        message: suspend ? `${member.name}'s request rights were revoked.` : `${member.name}'s request rights were restored.`,
+      }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Could not update request rights.");
     } finally { setBusyId(null); }
@@ -106,6 +119,7 @@ const Teams = () => {
     try {
       await api.delete(`/employee/${member._id}`);
       setTeamList((p) => p.filter((m) => m._id !== member._id));
+      dispatch(pushAlert({ type: "success", message: `${member.name} was removed from the team.` }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Could not remove employee.");
     } finally { setBusyId(null); }
@@ -120,7 +134,7 @@ const Teams = () => {
           <p className="text-slate-500 text-sm mt-1">{teamList.length} members in your organization</p>
         </div>
         {canInvite && (
-          <button onClick={() => setInviteOpen(true)} className="btn-primary self-start sm:self-auto">
+          <button onClick={() => dispatch(setToogleInviteModal(true))} className="btn-primary self-start sm:self-auto">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
             </svg>
@@ -265,97 +279,6 @@ const Teams = () => {
           </table>
         </div>
       )}
-
-      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} companyId={companyId} myId={myId} />
-    </div>
-  );
-};
-
-const InviteModal = ({ open, onClose, companyId, myId }) => {
-  const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [inviteLink, setInviteLink] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  if (!open) return null;
-
-  const reset = () => {
-    setEmail(""); setDepartment(""); setError(""); setInviteLink(""); setCopied(false);
-  };
-
-  const close = () => { reset(); onClose(); };
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const res = await api.post("/employee/invite", {
-        email, department, company_id: companyId, invited_by: myId,
-      });
-      const fullLink = `${window.location.origin}${res.data.inviteLink}`;
-      setInviteLink(fullLink);
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not create invite.");
-    } finally { setLoading(false); }
-  };
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(inviteLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-2xl shadow-modal max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-slate-900 text-lg">Invite a team member</h3>
-          <button onClick={close} className="text-slate-400 hover:text-slate-600">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {inviteLink ? (
-          <div className="space-y-4">
-            <p className="text-sm text-emerald-600 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Invite created — share this link with {email}. It expires in 24 hours.
-            </p>
-            <div className="flex items-center gap-2">
-              <input readOnly value={inviteLink} className="input-field text-xs flex-1" />
-              <button type="button" onClick={copyLink} className="btn-secondary whitespace-nowrap">
-                {copied ? "Copied!" : "Copy"}
-              </button>
-            </div>
-            <p className="text-xs text-slate-400">
-              No email delivery is configured yet, so the link isn't sent automatically — share it directly.
-            </p>
-            <button onClick={close} className="btn-primary w-full">Done</button>
-          </div>
-        ) : (
-          <form onSubmit={onSubmit} className="space-y-4">
-            {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
-            <div>
-              <label className="label">Email address</label>
-              <input type="email" required className="input-field" placeholder="colleague@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Department (optional)</label>
-              <input type="text" className="input-field" placeholder="e.g. Finance" value={department} onChange={(e) => setDepartment(e.target.value)} />
-            </div>
-            <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
-              {loading ? "Creating invite..." : "Generate invite link"}
-            </button>
-          </form>
-        )}
-      </div>
     </div>
   );
 };

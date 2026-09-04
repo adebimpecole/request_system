@@ -2,7 +2,7 @@
 import IconButton from "../buttons/IconButton";
 import Button from "../buttons/Button";
 
-const ConfirmSkipModal = ({ isOpen, closeModal }) => {
+const ConfirmSkipModal = ({ isOpen, closeModal, onSkip }) => {
   return (
     <div className={`${isOpen ? "block" : "hidden"}`}>
       <div className="relative z-10" onClose={closeModal}>
@@ -56,13 +56,13 @@ const ConfirmSkipModal = ({ isOpen, closeModal }) => {
                     type="button"
                     type2="primary"
                     content="Skip"
-                    Func={closeModal}
+                    Func={onSkip}
                   />
                   <Button
                     style="px-3 py-2 mt-3 w-full shadow-sm sm:w-auto"
                     type="button"
                     type2="secondary"
-                    content="Continue"
+                    content="Continue setup"
                     Func={closeModal}
                   />
                 </div>

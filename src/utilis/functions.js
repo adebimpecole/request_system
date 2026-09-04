@@ -10,9 +10,9 @@ export const getDate = () => {
   return formattedDate;
 };
 
-export const getFormattedDate = () => {
-  const dateStr = "2024-08-13T06:21:46.493Z";
-  const date = new Date(dateStr);
+export const getFormattedDate = (dateInput) => {
+  const date = new Date(dateInput);
+  if (!dateInput || Number.isNaN(date.getTime())) return "—";
 
   const day = String(date.getDate()).padStart(2, "0"); // Get the day and pad with leading zero if needed
   const month = String(date.getMonth() + 1).padStart(2, "0"); // Get the month (January is 0) and pad with leading zero

@@ -126,7 +126,7 @@ const LogIn = () => {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label htmlFor="password" className="label mb-0">Password</label>
-                <a href="#" className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">Forgot password?</a>
+                <Link to="/forgot-password" className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">Forgot password?</Link>
               </div>
               <div className="relative">
                 <input

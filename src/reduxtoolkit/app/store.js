@@ -4,6 +4,7 @@ import { modalReducer } from "../features/modal/modalSlice";
 import { userReducer } from "../features/user/userSlice";
 import { pageReducer } from "../features/page/pageSlice";
 import { cardReducer } from "../features/card/cardSlice";
+import { alertReducer } from "../features/alert/alertSlice";
 
 const store = configureStore({
   reducer: {
@@ -11,6 +12,7 @@ const store = configureStore({
     user: userReducer,
     page: pageReducer,
     card: cardReducer,
+    alert: alertReducer,
   },
 });
 

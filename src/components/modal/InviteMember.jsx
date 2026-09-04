@@ -1,88 +1,96 @@
-import React from "react";
-import ModalWrapper from "./ModalWrapper";
+import React, { useState } from "react";
 import { useDispatch } from "react-redux";
+import api from "../../utilis/api";
+import { getCompanyId, getId } from "../../utilis/storage";
 import { setToogleInviteModal } from "../../reduxtoolkit/features/modal/modalSlice";
 
 const InviteMember = () => {
   const dispatch = useDispatch();
+  const companyId = getCompanyId();
+  const myId = getId();
 
-  const handleToggle = () => {
+  const [email, setEmail] = useState("");
+  const [department, setDepartment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const close = () => {
     dispatch(setToogleInviteModal(false));
+    setEmail(""); setDepartment(""); setError(""); setInviteLink(""); setCopied(false);
   };
 
-  const onSubmit = () => {};
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.post("/employee/invite", {
+        email, department, company_id: companyId, invited_by: myId,
+      });
+      const fullLink = `${window.location.origin}${res.data.inviteLink}`;
+      setInviteLink(fullLink);
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not create invite.");
+    } finally { setLoading(false); }
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <ModalWrapper>
-      <div
-        id="crud-modal"
-        tabIndex="-1"
-        aria-hidden="true"
-        className="flex overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full"
-      >
-        <div className="relative p-4 w-full max-w-lg max-h-full">
-          <div className="relative bg-white rounded-lg shadow">
-            <div className="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
-              <h3 className="text-lg font-semibold text-gray-900 ">
-                Invite Member
-              </h3>
-              <button
-                className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center "
-                onClick={handleToggle}
-              >
-                <svg
-                  className="w-3 h-3"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 14 14"
-                >
-                  <path
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-                  />
-                </svg>
-                <span className="sr-only">Close modal</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-modal max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-slate-900 text-lg">Invite a team member</h3>
+          <button onClick={close} className="text-slate-400 hover:text-slate-600">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {inviteLink ? (
+          <div className="space-y-4">
+            <p className="text-sm text-emerald-600 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Invite created — share this link with {email}. It expires in 24 hours.
+            </p>
+            <div className="flex items-center gap-2">
+              <input readOnly value={inviteLink} className="input-field text-xs flex-1" />
+              <button type="button" onClick={copyLink} className="btn-secondary whitespace-nowrap">
+                {copied ? "Copied!" : "Copy"}
               </button>
             </div>
-            <form className="p-4 md:p-5" onSubmit={onSubmit}>
-              <div className="grid gap-4 mb-4 grid-cols-2">
-                <div className="col-span-2">
-                  <label
-                    htmlFor="title"
-                    className="block mb-2 text-sm font-medium text-gray-900  text-left"
-                  >
-                    Email
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    id="title"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
-                    placeholder="Enter email of the person you want to invite"
-                    // value={title}
-                    // onChange={onChange}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="justify-end items-center flex">
-                <div className="flex-shrink space-x-3">
-                  <button
-                    type="submit"
-                    className="text-white font-medium shadow-sm text-sm py-2.5 px-6 bg-gray-700 hover:bg-gray-800 items-center inline-flex rounded-md"
-                  >
-                    Invite
-                  </button>
-                </div>
-              </div>
-            </form>
+            <p className="text-xs text-slate-400">
+              No email delivery is configured yet, so the link isn't sent automatically — share it directly.
+            </p>
+            <button onClick={close} className="btn-primary w-full">Done</button>
           </div>
-        </div>
+        ) : (
+          <form onSubmit={onSubmit} className="space-y-4">
+            {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+            <div>
+              <label className="label">Email address</label>
+              <input type="email" required className="input-field" placeholder="colleague@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Department (optional)</label>
+              <input type="text" className="input-field" placeholder="e.g. Finance" value={department} onChange={(e) => setDepartment(e.target.value)} />
+            </div>
+            <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
+              {loading ? "Creating invite..." : "Generate invite link"}
+            </button>
+          </form>
+        )}
       </div>
-    </ModalWrapper>
+    </div>
   );
 };
 

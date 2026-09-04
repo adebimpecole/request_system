@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import api from "../../../utilis/api";
 import { getRole, getUser, getEmail, getId } from "../../../utilis/storage";
+import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -43,6 +45,7 @@ const ProofInput = ({ label, value, onChange, placeholder }) => (
 const RequestDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -126,6 +129,10 @@ const RequestDetails = () => {
       const res = await api.post(`/request/${id}/approve`, { action, proof: proof.trim() });
       setData(res.data.request);
       setProof("");
+      dispatch(pushAlert({
+        type: "success",
+        message: action === "approve" ? "Request approved." : "Request rejected.",
+      }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Action failed.");
     } finally { setActing(false); }
@@ -138,6 +145,7 @@ const RequestDetails = () => {
       const res = await api.post(`/request/${id}/clarify`, { question: clarifyQuestion });
       setData(res.data.request);
       setClarifyQuestion(""); setShowClarifyForm(false);
+      dispatch(pushAlert({ type: "success", message: "Clarification request sent." }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Failed to send clarification.");
     } finally { setActing(false); }
@@ -150,6 +158,7 @@ const RequestDetails = () => {
       const res = await api.post(`/request/${id}/respond`, { response: clarifyResponse });
       setData(res.data.request);
       setClarifyResponse("");
+      dispatch(pushAlert({ type: "success", message: "Response submitted." }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Failed to submit response.");
     } finally { setActing(false); }
@@ -161,6 +170,7 @@ const RequestDetails = () => {
     try {
       const res = await api.post(`/request/${id}/close`);
       setData(res.data.request);
+      dispatch(pushAlert({ type: "success", message: "Request closed." }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Failed to close request.");
     } finally { setActing(false); }

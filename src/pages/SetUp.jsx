@@ -180,6 +180,12 @@ const SetUp = () => {
     }
   };
 
+  const confirmSkip = () => {
+    localStorage.removeItem("setupStage");
+    localStorage.removeItem("setupCompletedSteps");
+    navigate("/employeedashboard");
+  };
+
   const Back = () => {
     // Allow going back — but clear the completed flag for the step being re-entered
     // so it can be re-submitted
@@ -353,7 +359,7 @@ const SetUp = () => {
         </div>
       </div>
 
-      <ConfirmSkipModal isOpen={isSkip} closeModal={() => setIsSkip(false)} />
+      <ConfirmSkipModal isOpen={isSkip} closeModal={() => setIsSkip(false)} onSkip={confirmSkip} />
     </div>
   );
 };
