@@ -53,8 +53,11 @@ const Teams = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [deptFilter, setDeptFilter] = useState("all");
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState("");
+
+  const departmentOptions = [...new Set(teamList.map((m) => m.department).filter(Boolean))].sort();
 
   const load = async () => {
     setLoading(true);
@@ -69,10 +72,15 @@ const Teams = () => {
 
   const filtered = teamList.filter((m) => {
     const matchesRole = roleFilter === "all" || m.role === roleFilter;
+    const matchesDept = deptFilter === "all" || m.department === deptFilter;
     const full = `${m.name} ${m.email} ${m.role}`.toLowerCase();
     const matchesSearch = !search || full.includes(search.toLowerCase());
-    return matchesRole && matchesSearch;
+    return matchesRole && matchesDept && matchesSearch;
   });
+
+  const currentDeptHead = deptFilter !== "all"
+    ? teamList.find((m) => m.department === deptFilter && m.role === "department_head")
+    : null;
 
   const toggleApproverRole = async (member, targetRole) => {
     setActionError("");
@@ -161,6 +169,16 @@ const Teams = () => {
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all"
           />
         </div>
+        {departmentOptions.length > 0 && (
+          <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="text-sm border border-slate-200 rounded-xl bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all capitalize"
+          >
+            <option value="all">All departments</option>
+            {departmentOptions.map((d) => <option key={d} value={d} className="capitalize">{d}</option>)}
+          </select>
+        )}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
           {FILTERS.map((f) => (
             <button
@@ -175,6 +193,19 @@ const Teams = () => {
           ))}
         </div>
       </div>
+
+      {deptFilter !== "all" && (
+        <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${
+          currentDeptHead ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-slate-50 border border-slate-200 text-slate-600"
+        }`}>
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443" />
+          </svg>
+          {currentDeptHead
+            ? <span className="capitalize">Department head for {deptFilter}: <strong>{currentDeptHead.name}</strong></span>
+            : <span className="capitalize">No department head assigned for {deptFilter} yet.{canManageApprovers && " Use “Make Dept Head” below to assign one."}</span>}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>

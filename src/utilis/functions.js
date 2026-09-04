@@ -23,6 +23,45 @@ export const getFormattedDate = (dateInput) => {
   return formattedDate;
 };
 
+export const getApproverDesignation = (email, approversDoc) => {
+  if (!email || !approversDoc) return null;
+  const isFunding = approversDoc.funding_authority === email;
+  const isVerification = approversDoc.verification_authority === email;
+  if (isFunding && isVerification) return "Funding & Verification Approver";
+  if (isFunding) return "Funding Approver";
+  if (isVerification) return "Verification Approver";
+  return null;
+};
+
+export const needsMyAction = (request, { role, myEmail, myDepartment, fundingAuthority, verificationAuthority }) => {
+  const status = (request.status || "").toLowerCase();
+  if (["approved", "rejected", "closed", "clarification_needed"].includes(status)) return false;
+
+  const idx = request.approval_index ?? 0;
+  const isDeptHead = role === "department_head" && !!myDepartment && myDepartment === request.department;
+  const isFundingApprover = !!myEmail && myEmail === fundingAuthority;
+  const isVerificationApprover = !!myEmail && myEmail === verificationAuthority;
+
+  return (
+    (idx === 0 && isDeptHead) ||
+    (idx === 1 && isFundingApprover) ||
+    (idx === 2 && isDeptHead) ||
+    (idx === 3 && isVerificationApprover)
+  );
+};
+
+export const needsMyResponse = (request, { myId, role, myDepartment }) => {
+  if ((request.status || "").toLowerCase() !== "clarification_needed") return false;
+
+  const pending = [...(request.clarification || [])].reverse().find((c) => !c.response);
+  if (!pending) return false;
+
+  const askedByDeptHead = (pending.asked_by_role || "department_head") === "department_head";
+  if (askedByDeptHead) return String(request.user_id) === myId;
+
+  return role === "department_head" && !!myDepartment && myDepartment === request.department;
+};
+
 export const generateRandomCode = (length) => {
   const characters =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -35,18 +74,3 @@ export const generateRandomCode = (length) => {
 
   return code;
 };
-
-// // Encode an ID to Base64
-// function encodeId(id) {
-//   const sqids = new Sqids({
-//     alphabet: 'k3G7QAe51FCsPW92uEOyq4Bg6Sp8YzVTmnU0liwDdHXLajZrfxNhobJIRcMvKt',
-//   })
-//   const id = sqids.encode(id) // "XRKUdQ"
-//   const numbers = sqids.decode(id) // [1, 2, 3]
-//   return btoa(id);
-// }
-
-// // Decode an ID from Base64
-// function decodeId(encodedId) {
-//   return atob(encodedId);
-// }

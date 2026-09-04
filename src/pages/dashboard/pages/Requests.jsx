@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import api from "../../../utilis/api";
-import { getFormattedDate } from "../../../utilis/functions";
+import { getFormattedDate, needsMyAction, needsMyResponse } from "../../../utilis/functions";
 import { setToogleRequestModal } from "../../../reduxtoolkit/features/modal/modalSlice";
-import { getId, getCompanyId, getRole } from "../../../utilis/storage";
+import { getId, getCompanyId, getRole, getEmail, getUser } from "../../../utilis/storage";
 
 const STATUS_FILTERS = ["all", "approved", "pending", "rejected"];
 
@@ -122,11 +122,12 @@ const Requests = () => {
   const isApprover = ["approver", "department_head", "admin"].includes(role);
 
   const [allRequests, setAllRequests] = useState([]);
+  const [approversDoc, setApproversDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  // For approvers: top-level tab (personal vs others)
-  const [view, setView] = useState("personal"); // "personal" | "others"
+  // For approvers: top-level tab (action needed vs personal vs others)
+  const [view, setView] = useState("personal"); // "action" | "personal" | "others"
   // Status sub-filter per view
   const [personalFilter, setPersonalFilter] = useState("all");
   const [othersFilter, setOthersFilter] = useState("all");
@@ -139,7 +140,12 @@ const Requests = () => {
       try {
         let res;
         if (isApprover) {
-          res = await api.get(`/company/requests/${getCompanyId()}`);
+          const [requestsRes, companyRes] = await Promise.all([
+            api.get(`/company/requests/${getCompanyId()}`),
+            api.get(`/company/get_company/${getCompanyId()}`),
+          ]);
+          res = requestsRes;
+          setApproversDoc(companyRes.data?.approvers || null);
         } else {
           res = await api.get(`/employee/requests/${myId}`);
         }
@@ -167,14 +173,23 @@ const Requests = () => {
       ? list
       : list.filter((r) => (r.status || "pending").toLowerCase() === statusFilter);
 
-  // Split for approver view
   const personal = allRequests.filter((r) => String(r.user_id) === myId);
   const others = allRequests.filter((r) => String(r.user_id) !== myId);
 
+  const actionCtx = {
+    role,
+    myId,
+    myEmail: getEmail(),
+    myDepartment: getUser()?.department,
+    fundingAuthority: approversDoc?.funding_authority,
+    verificationAuthority: approversDoc?.verification_authority,
+  };
+  const actionable = allRequests.filter((r) => needsMyAction(r, actionCtx) || needsMyResponse(r, actionCtx));
+
   const visiblePersonal = applySearch(applyStatus(personal, personalFilter));
   const visibleOthers = applySearch(applyStatus(others, othersFilter));
+  const visibleAction = applySearch(actionable);
 
-  // Plain requester view
   const visibleRequester = applySearch(applyStatus(allRequests, filter));
 
   return (
@@ -201,27 +216,27 @@ const Requests = () => {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
         <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
           {isApprover ? (
-            /* Top-level view switcher for approvers */
             <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl flex-shrink-0">
               {[
+                { key: "action", label: "Needs My Action", count: actionable.length },
                 { key: "personal", label: "Personal", count: personal.length },
                 { key: "others", label: "Others", count: others.length },
               ].map(({ key, label, count }) => (
                 <button
                   key={key}
                   onClick={() => setView(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all duration-150 ${view === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 ${view === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                 >
                   {label}{" "}
-                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${view === key ? "bg-brand-100 text-brand-700" : "bg-slate-200 text-slate-500"}`}>{count}</span>
+                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${
+                    view === key ? "bg-brand-100 text-brand-700" : key === "action" && count > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-500"
+                  }`}>{count}</span>
                 </button>
               ))}
             </div>
           ) : (
             <StatusFilterBar list={allRequests} activeFilter={filter} onChange={setFilter} />
           )}
-
-          {/* Search */}
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -236,8 +251,7 @@ const Requests = () => {
           </div>
         </div>
 
-        {/* Status sub-filters for approver view */}
-        {isApprover && (
+        {isApprover && view !== "action" && (
           <div className="px-6 py-3 border-b border-slate-100">
             <StatusFilterBar
               list={view === "personal" ? personal : others}
@@ -249,21 +263,20 @@ const Requests = () => {
 
         <RequestTable
           loading={loading}
-          rows={isApprover ? (view === "personal" ? visiblePersonal : visibleOthers) : visibleRequester}
+          rows={isApprover ? (view === "action" ? visibleAction : view === "personal" ? visiblePersonal : visibleOthers) : visibleRequester}
           onRowClick={(id) => navigate(`/employeedashboard/request-details/${id}`)}
         />
 
-        {/* Footer count */}
-        {!loading && (
+          {!loading && (
           <div className="px-6 py-4 border-t border-slate-100">
             <p className="text-xs text-slate-500">
               Showing{" "}
               <span className="font-semibold text-slate-700">
-                {isApprover ? (view === "personal" ? visiblePersonal.length : visibleOthers.length) : visibleRequester.length}
+                {isApprover ? (view === "action" ? visibleAction.length : view === "personal" ? visiblePersonal.length : visibleOthers.length) : visibleRequester.length}
               </span>{" "}
               of{" "}
               <span className="font-semibold text-slate-700">
-                {isApprover ? (view === "personal" ? personal.length : others.length) : allRequests.length}
+                {isApprover ? (view === "action" ? actionable.length : view === "personal" ? personal.length : others.length) : allRequests.length}
               </span>{" "}
               requests
             </p>

@@ -5,7 +5,6 @@ import api from "../../../utilis/api";
 import { getRole, getUser, getEmail, getId } from "../../../utilis/storage";
 import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
 
-// ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUS = {
   approved:             { cls: "status-approved", label: "Approved",              dot: "bg-emerald-500" },
@@ -18,7 +17,7 @@ const STATUS = {
   clarification_needed: { cls: "status-pending",  label: "Clarification Needed",  dot: "bg-orange-500"  },
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+//  sub-components 
 
 const Spinner = ({ sm }) => (
   <svg className={`${sm ? "w-4 h-4" : "w-8 h-8"} animate-spin text-brand-500`} fill="none" viewBox="0 0 24 24">
@@ -40,7 +39,7 @@ const ProofInput = ({ label, value, onChange, placeholder }) => (
   </div>
 );
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// main component 
 
 const RequestDetails = () => {
   const { id } = useParams();
@@ -100,13 +99,13 @@ const RequestDetails = () => {
   const idx = data.approval_index ?? 0;
   const isFinalised = ["approved", "rejected", "closed"].includes(status);
 
-  // ── Who can do what ──────────────────────────────────────────────────────────
+  // who can do what
   const isDeptHead = role === "department_head" && currentUser.department === data.department;
   const isFundingApprover = myEmail === data.funding_authority;
   const isVerificationApprover = myEmail === data.verification_authority;
   const isRequester = myId === String(data.user_id);
 
-  // Whether this user is the current actor for approval
+  // whether this user is the current actor for approval
   const canApprove = !isFinalised && status !== "clarification_needed" && (
     (idx === 0 && isDeptHead) ||
     (idx === 1 && isFundingApprover) ||
@@ -114,11 +113,17 @@ const RequestDetails = () => {
     (idx === 3 && isVerificationApprover)
   );
 
-  const canClarify = isDeptHead && !isFinalised;
-  const needsResponse = isRequester && status === "clarification_needed";
-  const canClose = (isRequester || isDeptHead) && !isFinalised;
+  const canClarify = (isDeptHead || (idx === 3 && isVerificationApprover)) && !isFinalised;
+  const canClose = (isRequester || isDeptHead) && !isFinalised && status !== "delegated";
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
+  // no one is currently assigned to act at this stage the request can't move until an admin assigns a funding/verification approver, or a department head, for this department.
+  const awaitingAssignment = !isFinalised && status !== "clarification_needed" && (
+    (idx === 1 && !data.funding_authority) ||
+    (idx === 3 && !data.verification_authority) ||
+    ((idx === 0 || idx === 2) && !data.has_department_head)
+  );
+
+  // handlers 
   const act = async (action) => {
     if ((idx === 1 || idx === 2) && action === "approve" && !proof.trim()) {
       setActionError("Please attach proof before approving.");
@@ -126,8 +131,8 @@ const RequestDetails = () => {
     }
     setActing(true); setActionError("");
     try {
-      const res = await api.post(`/request/${id}/approve`, { action, proof: proof.trim() });
-      setData(res.data.request);
+      await api.post(`/request/${id}/approve`, { action, proof: proof.trim() });
+      await fetch();
       setProof("");
       dispatch(pushAlert({
         type: "success",
@@ -142,8 +147,8 @@ const RequestDetails = () => {
     if (!clarifyQuestion.trim()) return;
     setActing(true); setActionError("");
     try {
-      const res = await api.post(`/request/${id}/clarify`, { question: clarifyQuestion });
-      setData(res.data.request);
+      await api.post(`/request/${id}/clarify`, { question: clarifyQuestion });
+      await fetch();
       setClarifyQuestion(""); setShowClarifyForm(false);
       dispatch(pushAlert({ type: "success", message: "Clarification request sent." }));
     } catch (e) {
@@ -155,8 +160,8 @@ const RequestDetails = () => {
     if (!clarifyResponse.trim()) return;
     setActing(true); setActionError("");
     try {
-      const res = await api.post(`/request/${id}/respond`, { response: clarifyResponse });
-      setData(res.data.request);
+      await api.post(`/request/${id}/respond`, { response: clarifyResponse });
+      await fetch();
       setClarifyResponse("");
       dispatch(pushAlert({ type: "success", message: "Response submitted." }));
     } catch (e) {
@@ -168,15 +173,15 @@ const RequestDetails = () => {
     if (!window.confirm("Close this request? This cannot be undone.")) return;
     setActing(true);
     try {
-      const res = await api.post(`/request/${id}/close`);
-      setData(res.data.request);
+      await api.post(`/request/${id}/close`);
+      await fetch();
       dispatch(pushAlert({ type: "success", message: "Request closed." }));
     } catch (e) {
       setActionError(e.response?.data?.message || "Failed to close request.");
     } finally { setActing(false); }
   };
 
-  // ── Timeline ─────────────────────────────────────────────────────────────────
+  // timeline 
   const STAGES = [
     { label: "Submitted",          done: true },
     { label: "Dept Head Review",   done: idx >= 1 || isFinalised },
@@ -185,10 +190,14 @@ const RequestDetails = () => {
     { label: "Verified & Closed",  done: status === "approved" },
   ];
 
-  // ── Pending clarification (latest unanswered) ────────────────────────────────
+  // pending clarification (latest unanswered) 
   const pendingClarification = status === "clarification_needed"
     ? [...(data.clarification || [])].reverse().find((c) => !c.response)
     : null;
+
+  // clarification 
+  const askedByDeptHead = pendingClarification ? (pendingClarification.asked_by_role || "department_head") === "department_head" : true;
+  const needsResponse = !!pendingClarification && (askedByDeptHead ? isRequester : isDeptHead);
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
@@ -199,6 +208,19 @@ const RequestDetails = () => {
         </svg>
         Back to requests
       </button>
+
+      {awaitingAssignment && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <svg className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <p className="text-amber-800 text-sm">
+            {idx === 0 || idx === 2
+              ? `No department head is assigned for ${data.department}, so this request can't move forward yet. An admin needs to assign one in Team.`
+              : `No ${idx === 1 ? "funding" : "verification"} approver is currently assigned, so this request can't move forward yet. An admin needs to assign one in Settings → Approvers.`}
+          </p>
+        </div>
+      )}
 
       {/* Header */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
@@ -383,7 +405,7 @@ const RequestDetails = () => {
         </div>
       )}
 
-      {/* Dept head: request clarification */}
+      {/* Dept head or verification approver: request clarification */}
       {canClarify && (
         <div className="bg-white border border-slate-100 rounded-2xl shadow-card p-6">
           {!showClarifyForm ? (
@@ -392,7 +414,7 @@ const RequestDetails = () => {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
               </svg>
-              Request clarification from requester
+              {isDeptHead ? "Request clarification from requester" : "Request clearer proof of use from department head"}
             </button>
           ) : (
             <div className="space-y-3">
@@ -439,7 +461,7 @@ const RequestDetails = () => {
           </div>
           <div>
             <p className="text-sm font-semibold text-amber-800">
-              {status === "clarification_needed" ? "Awaiting requester response" :
+              {status === "clarification_needed" ? (askedByDeptHead ? "Awaiting requester response" : "Awaiting department head response") :
                idx === 0 ? "Awaiting department head review" :
                idx === 1 ? "Awaiting funding approver" :
                idx === 2 ? "Awaiting department head to delegate funds" :

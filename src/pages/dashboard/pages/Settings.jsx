@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
 import api from "../../../utilis/api";
 import { getId, getToken, getRole, getEmail, getDisplayName, getUser, getCompanyId } from "../../../utilis/storage";
+import { getApproverDesignation } from "../../../utilis/functions";
+import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
 
 const avatarColors = "from-brand-400 to-brand-700";
 
@@ -86,6 +89,7 @@ const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) 
 
   const departmentList = companyData?.departments || [];
   const companyName = companyData?.company?.company_name || "";
+  const approverLabel = getApproverDesignation(getEmail(), companyData?.approvers);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -97,8 +101,11 @@ const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) 
           </div>
           <h3 className="font-bold text-slate-900 text-lg capitalize">{storedUser}</h3>
           <p className="text-sm text-slate-500 mt-0.5">{getEmail()}</p>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 ring-1 ring-brand-200 capitalize">{role}</span>
+            {approverLabel && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 ring-1 ring-violet-200">{approverLabel}</span>
+            )}
           </div>
           {companyName && (
             <div className="mt-4 pt-4 border-t border-slate-100">
@@ -206,8 +213,10 @@ const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) 
   );
 };
 
-//  Organization Tab 
-const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
+//  Organization Tab
+const OrganizationTab = ({ companyId, token, role, myDepartment, companyData, refresh }) => {
+  const dispatch = useDispatch();
+  const isAdmin = role === "admin";
   const initialBudget = companyData?.company?.budget ?? "";
   const [budget, setBudget] = useState(initialBudget);
   const [budgetSaved, setBudgetSaved] = useState(false);
@@ -224,6 +233,45 @@ const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
 
   const [deletingId, setDeletingId] = useState(null);
   const members = companyData?.employees || [];
+
+  const [mergeFrom, setMergeFrom] = useState("");
+  const [mergeInto, setMergeInto] = useState("");
+  const [mergeConfirming, setMergeConfirming] = useState(false);
+  const [mergeLoading, setMergeLoading] = useState(false);
+
+  const membersInFrom = members.filter((m) => m.department === mergeFrom).length;
+  const fromHead = members.find((m) => m.department === mergeFrom && m.role === "department_head");
+  const intoHead = members.find((m) => m.department === mergeInto && m.role === "department_head");
+
+  const doMerge = async () => {
+    setMergeLoading(true);
+    try {
+      const res = await api.post("/department/merge", { company_id: companyId, from: mergeFrom, into: mergeInto }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      dispatch(pushAlert({
+        type: "success",
+        message: `Merged ${mergeFrom} into ${mergeInto} — ${res.data.employeesMoved} member${res.data.employeesMoved === 1 ? "" : "s"} moved.${res.data.demoted ? ` ${res.data.demoted.name} is no longer department head.` : ""}`,
+      }));
+      setMergeFrom(""); setMergeInto(""); setMergeConfirming(false);
+      refresh();
+    } catch (e) {
+      dispatch(pushAlert({ type: "error", message: e.response?.data?.message || "Could not merge departments." }));
+    } finally { setMergeLoading(false); }
+  };
+
+  // Group members by department
+  const departmentGroups = Object.entries(
+    members.reduce((acc, m) => {
+      const dept = m.department || "Unassigned";
+      (acc[dept] ||= []).push(m);
+      return acc;
+    }, {})
+  ).sort(([a], [b]) => {
+    if (a === myDepartment) return -1;
+    if (b === myDepartment) return 1;
+    return a.localeCompare(b);
+  });
 
   const saveBudget = async () => {
     setBudgetLoading(true);
@@ -279,7 +327,7 @@ const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
 
   return (
     <div className="space-y-6">
-      {/* Budget */}
+      {isAdmin && (
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
         <SectionHeader label="Budget" color="bg-emerald-50 text-emerald-600" icon={
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -304,8 +352,10 @@ const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
         </div>
         {budgetSaved && <p className="text-emerald-600 text-sm mt-2 flex items-center gap-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Budget updated.</p>}
       </div>
+      )}
 
       {/* Departments */}
+      {isAdmin && (
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
         <SectionHeader label="Departments" color="bg-violet-50 text-violet-600" icon={
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -326,16 +376,27 @@ const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
           <p className="text-sm text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-xl">No departments yet.</p>
         ) : (
           <div className="flex flex-wrap gap-2 mb-4">
-            {departments.map((d) => (
-              <span key={d} className="inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 text-sm font-medium px-3 py-1.5 rounded-full ring-1 ring-brand-200">
-                {d}
-                <button type="button" onClick={() => removeDepartment(d)} className="text-brand-400 hover:text-red-500 transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </span>
-            ))}
+            {departments.map((d) => {
+              const memberCount = members.filter((m) => m.department === d).length;
+              return (
+                <span key={d} className="inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 text-sm font-medium px-3 py-1.5 rounded-full ring-1 ring-brand-200">
+                  {d}
+                  {memberCount > 0 ? (
+                    <span title={`${memberCount} member${memberCount === 1 ? "" : "s"} — merge into another department below to remove`} className="text-brand-300 cursor-not-allowed">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                    </span>
+                  ) : (
+                    <button type="button" onClick={() => removeDepartment(d)} className="text-brand-400 hover:text-red-500 transition-colors">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </span>
+              );
+            })}
           </div>
         )}
         {(deptDirty || deptSaved) && (
@@ -346,7 +407,66 @@ const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
             </button>
           </div>
         )}
+
+        {initialDepartments.length >= 2 && (
+          <div className="mt-5 pt-5 border-t border-slate-100">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Merge departments</p>
+            <p className="text-xs text-slate-400 mb-3">Move everyone and every request from one department into another, then remove the old one.</p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+              <div className="flex-1">
+                <label className="label">Merge</label>
+                <select
+                  className="input-field capitalize"
+                  value={mergeFrom}
+                  onChange={(e) => { setMergeFrom(e.target.value); setMergeConfirming(false); }}
+                >
+                  <option value="">Select department</option>
+                  {initialDepartments.filter((d) => d !== mergeInto).map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="label">Into</label>
+                <select
+                  className="input-field capitalize"
+                  value={mergeInto}
+                  onChange={(e) => { setMergeInto(e.target.value); setMergeConfirming(false); }}
+                >
+                  <option value="">Select department</option>
+                  {initialDepartments.filter((d) => d !== mergeFrom).map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMergeConfirming(true)}
+                disabled={!mergeFrom || !mergeInto}
+                className="btn-secondary whitespace-nowrap disabled:opacity-50"
+              >
+                Merge
+              </button>
+            </div>
+
+            {mergeConfirming && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-2">
+                <p>
+                  This moves <strong>{membersInFrom}</strong> member{membersInFrom === 1 ? "" : "s"} and every request currently in <span className="capitalize font-semibold">{mergeFrom}</span> into <span className="capitalize font-semibold">{mergeInto}</span>, then removes <span className="capitalize font-semibold">{mergeFrom}</span> as a department.
+                </p>
+                {fromHead && intoHead && (
+                  <p>
+                    <span className="capitalize font-semibold">{fromHead.name}</span> is currently department head of {mergeFrom} and will lose that role — <span className="capitalize font-semibold">{intoHead.name}</span> remains department head of {mergeInto}.
+                  </p>
+                )}
+                <div className="flex items-center gap-2 pt-1">
+                  <button type="button" onClick={doMerge} disabled={mergeLoading} className="btn-primary text-sm py-2 disabled:opacity-60">
+                    {mergeLoading ? "Merging..." : "Confirm merge"}
+                  </button>
+                  <button type="button" onClick={() => setMergeConfirming(false)} className="btn-secondary text-sm py-2">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+      )}
 
       {/* Members */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
@@ -358,34 +478,48 @@ const OrganizationTab = ({ companyId, token, companyData, refresh }) => {
         {members.length === 0 ? (
           <p className="text-sm text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">No team members yet.</p>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {members.map((m) => {
-              const ini = (m.name || m.email).split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-              return (
-                <div key={m._id} className="flex items-center gap-3 py-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {ini}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 capitalize truncate">{m.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{m.email}</p>
-                  </div>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 capitalize flex-shrink-0">{m.role}</span>
-                  <button
-                    onClick={() => deleteMember(m._id)}
-                    disabled={deletingId === m._id}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-40"
-                    title="Remove member"
-                  >
-                    {deletingId === m._id ? <Spinner /> : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                      </svg>
-                    )}
-                  </button>
+          <div className="space-y-6">
+            {departmentGroups.map(([deptName, deptMembers]) => (
+              <div key={deptName}>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">{deptName}</h3>
+                  {deptName === myDepartment && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-600">Your department</span>
+                  )}
                 </div>
-              );
-            })}
+                <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+                  {deptMembers.map((m) => {
+                    const ini = (m.name || m.email).split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+                    return (
+                      <div key={m._id} className="flex items-center gap-3 py-3 px-3">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                          {ini}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 capitalize truncate">{m.name}</p>
+                          <p className="text-xs text-slate-500 truncate">{m.email}</p>
+                        </div>
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 capitalize flex-shrink-0">{m.role}</span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => deleteMember(m._id)}
+                            disabled={deletingId === m._id}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-40"
+                            title="Remove member"
+                          >
+                            {deletingId === m._id ? <Spinner /> : (
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -621,7 +755,7 @@ const Settings = () => {
             <ProfileTab userid={userid} token={token} role={role} storedUser={storedUser} initials={initials} companyData={companyData} />
           )}
           {activeTab === "organization" && isAdminOrApprover && (
-            <OrganizationTab companyId={companyId} token={token} companyData={companyData} refresh={loadCompany} />
+            <OrganizationTab companyId={companyId} token={token} role={role} myDepartment={getUser()?.department} companyData={companyData} refresh={loadCompany} />
           )}
           {activeTab === "approvers" && isAdmin && (
             <ApproversTab companyId={companyId} token={token} companyData={companyData} refresh={loadCompany} />

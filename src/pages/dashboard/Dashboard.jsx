@@ -1,14 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { setToogleRequestModal, setToogleInviteModal } from "../../reduxtoolkit/features/modal/modalSlice";
 import CreateRequestModal from "../../components/modal/CreateRequestModal";
 import InviteMember from "../../components/modal/InviteMember";
-import { getDisplayName, getRole, getRefreshToken, clearSession } from "../../utilis/storage";
+import { getDisplayName, getRole, getEmail, getCompanyId, getRefreshToken, clearSession } from "../../utilis/storage";
 import { disconnectSocket } from "../../utilis/socket";
 import NotificationBell from "../../components/NotificationBell";
 import api from "../../utilis/api";
 import { NON_REQUESTER_ROLES } from "../../utilis/roles";
+import { getApproverDesignation } from "../../utilis/functions";
 
 const navItems = [
   {
@@ -73,6 +74,15 @@ const Dashboard = () => {
   const role = getRole();
   const visibleNavItems = navItems.filter((item) => !item.roles || item.roles.includes(role));
 
+  const [approversDoc, setApproversDoc] = useState(null);
+  useEffect(() => {
+    if (role === "requester") return; // only approvers can hold a funding/verification seat
+    api.get(`/company/get_company/${getCompanyId()}`)
+      .then((res) => setApproversDoc(res.data?.approvers || null))
+      .catch(() => {});
+  }, [role]);
+  const approverLabel = getApproverDesignation(getEmail(), approversDoc);
+
   const handleLogout = async () => {
     const refreshToken = getRefreshToken();
     try {
@@ -99,7 +109,7 @@ const Dashboard = () => {
           </div>
           <div>
             <span className="font-bold text-white text-base">FinReq</span>
-            <span className="block text-white/40 text-xs capitalize">{role} account</span>
+            <span className="block text-white/40 text-xs capitalize">{approverLabel || `${role} account`}</span>
           </div>
         </div>
       </div>
@@ -157,7 +167,7 @@ const Dashboard = () => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white text-xs font-semibold truncate capitalize">{user}</p>
-            <p className="text-white/40 text-xs truncate capitalize">{role}</p>
+            <p className="text-white/40 text-xs truncate capitalize">{approverLabel || role}</p>
           </div>
           <button onClick={handleLogout} className="text-white/40 hover:text-red-400 transition-colors" title="Sign out">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">

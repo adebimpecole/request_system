@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import api from "../../../utilis/api";
 import { useNavigate } from "react-router-dom";
-import { getFormattedDate } from "../../../utilis/functions";
-import { getId, getDisplayName, getRole, getCompanyId, getToken } from "../../../utilis/storage";
+import { getFormattedDate, needsMyAction, needsMyResponse } from "../../../utilis/functions";
+import { getId, getDisplayName, getRole, getEmail, getUser, getCompanyId, getToken } from "../../../utilis/storage";
+import { getSocket } from "../../../utilis/socket";
 
 const StatCard = ({ title, value, icon, colorClass, change, up }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 flex flex-col gap-4 hover:shadow-card-hover transition-shadow duration-200">
@@ -127,6 +128,8 @@ const Home = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, totalAmount: 0 });
   const [recentRequests, setRecentRequests] = useState([]);
+  const [actionRequests, setActionRequests] = useState([]);
+  const [actionLoaded, setActionLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const user = getDisplayName() || "User";
   const role = getRole();
@@ -134,9 +137,10 @@ const Home = () => {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   useEffect(() => {
-    const load = async () => {
-      const companyId = getCompanyId();
-      const myId = getId();
+    const companyId = getCompanyId();
+    const myId = getId();
+
+    const load = async (isInitial) => {
       try {
         const [statsRes, recentRes] = await Promise.all([
           api.get(`/request/stats/${companyId}`),
@@ -145,10 +149,58 @@ const Home = () => {
         setStats(statsRes.data || {});
         setRecentRequests(recentRes.data || []);
       } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+      finally { if (isInitial) setLoading(false); }
     };
-    load();
-  }, []);
+    load(true);
+
+    if (role === "requester") return;
+
+    const loadActionItems = async () => {
+      try {
+        const [companyRequestsRes, companyRes] = await Promise.all([
+          api.get(`/company/requests/${companyId}`).catch((e) => (e.response?.status === 404 ? { data: [] } : Promise.reject(e))),
+          api.get(`/company/get_company/${companyId}`),
+        ]);
+        const approversDoc = companyRes.data?.approvers;
+        const ctx = {
+          role,
+          myId,
+          myEmail: getEmail(),
+          myDepartment: getUser()?.department,
+          fundingAuthority: approversDoc?.funding_authority,
+          verificationAuthority: approversDoc?.verification_authority,
+        };
+        // Two distinct reasons a request can need attention: it's your turn
+        // to approve/reject, or someone raised a clarification question you
+        // need to answer before it can move again.
+        const items = (companyRequestsRes.data || [])
+          .map((r) => {
+            if (needsMyAction(r, ctx)) return { ...r, _actionType: "approve" };
+            if (needsMyResponse(r, ctx)) return { ...r, _actionType: "respond" };
+            return null;
+          })
+          .filter(Boolean);
+        setActionRequests(items);
+      } catch (e) { console.error(e); }
+      finally { setActionLoaded(true); }
+    };
+    loadActionItems();
+
+    // Requests are a live, shared list — anyone's action can move a request
+    // out of (or into) "needs your action" for someone else. Refetch on any
+    // request-related event instead of only reflecting whatever was true
+    // when this page happened to load.
+    const socket = getSocket();
+    if (!socket) return;
+    const onNotification = (payload) => {
+      if (["new_request", "request_update", "clarification"].includes(payload?.type)) {
+        load(false);
+        if (role !== "requester") loadActionItems();
+      }
+    };
+    socket.on("notification", onNotification);
+    return () => socket.off("notification", onNotification);
+  }, [role]);
 
   const { total, approved, pending, totalAmount } = stats;
 
@@ -195,6 +247,82 @@ const Home = () => {
           icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         />
       </div>
+
+      {/* Needs Your Action */}
+      {role !== "requester" && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-slate-900 flex items-center gap-2">
+                Needs Your Action
+                {actionRequests.length > 0 && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{actionRequests.length}</span>
+                )}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">Requests currently waiting on your approval</p>
+            </div>
+            {actionRequests.length > 0 && (
+              <button onClick={() => navigate("/employeedashboard/requests")} className="text-sm font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors">
+                View all
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {!actionLoaded ? (
+            <div className="p-8 text-center">
+              <svg className="w-6 h-6 animate-spin text-brand-500 mx-auto" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </div>
+          ) : actionRequests.length === 0 ? (
+            <div className="p-10 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="font-semibold text-slate-700">You're all caught up</p>
+              <p className="text-sm text-slate-400 mt-0.5">Nothing needs your review right now.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {actionRequests.slice(0, 5).map((r) => {
+                const isResponse = r._actionType === "respond";
+                return (
+                  <div
+                    key={r.request_id}
+                    onClick={() => navigate(`/employeedashboard/request-details/${r.request_id}`)}
+                    className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50 cursor-pointer transition-colors group"
+                  >
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isResponse ? "bg-orange-50" : "bg-amber-50"}`}>
+                      {isResponse ? (
+                        <svg className="w-4.5 h-4.5 text-orange-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4.5 h-4.5 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-800 capitalize truncate group-hover:text-brand-600 transition-colors">{r.title}</p>
+                      <p className="text-xs text-slate-400 capitalize">
+                        {isResponse ? "Clarification needs your response" : `${r.department} · ${r.category}`}
+                      </p>
+                    </div>
+                    <p className="font-bold text-slate-900 flex-shrink-0">${parseFloat(r.amount || 0).toLocaleString()}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {role === "admin" && <EmployeesPanel />}
 

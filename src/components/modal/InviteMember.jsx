@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import api from "../../utilis/api";
 import { getCompanyId, getId } from "../../utilis/storage";
@@ -11,10 +11,17 @@ const InviteMember = () => {
 
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
+  const [departmentList, setDepartmentList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    api.get(`/department/get_department/${companyId}`)
+      .then((res) => setDepartmentList(res.data || []))
+      .catch(() => setDepartmentList([])); // no departments configured yet
+  }, [companyId]);
 
   const close = () => {
     dispatch(setToogleInviteModal(false));
@@ -82,7 +89,16 @@ const InviteMember = () => {
             </div>
             <div>
               <label className="label">Department (optional)</label>
-              <input type="text" className="input-field" placeholder="e.g. Finance" value={department} onChange={(e) => setDepartment(e.target.value)} />
+              {departmentList.length > 0 ? (
+                <select className="input-field" value={department} onChange={(e) => setDepartment(e.target.value)}>
+                  <option value="">No specific department</option>
+                  {departmentList.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                </select>
+              ) : (
+                <p className="text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                  No departments configured yet — add one in Settings → Organization first.
+                </p>
+              )}
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
               {loading ? "Creating invite..." : "Generate invite link"}

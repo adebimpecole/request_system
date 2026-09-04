@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import api from "../../../utilis/api";
 import { getCompanyId, getRole } from "../../../utilis/storage";
+import { getSocket } from "../../../utilis/socket";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const PALETTE = ["#6366f1", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
@@ -62,8 +63,8 @@ const Analytics = () => {
       return;
     }
 
-    const load = async () => {
-      setLoading(true);
+    const load = async (isInitial) => {
+      if (isInitial) setLoading(true);
       try {
         const [requestsRes, companyRes] = await Promise.all([
           api.get(`/company/requests/${companyId}`).catch((e) =>
@@ -76,10 +77,18 @@ const Analytics = () => {
       } catch (e) {
         console.error(e);
       } finally {
-        setLoading(false);
+        if (isInitial) setLoading(false);
       }
     };
-    load();
+    load(true);
+    
+    const socket = getSocket();
+    if (!socket) return;
+    const onNotification = (payload) => {
+      if (payload?.type === "new_request" || payload?.type === "request_update") load(false);
+    };
+    socket.on("notification", onNotification);
+    return () => socket.off("notification", onNotification);
   }, [companyId, role]);
 
   if (role === "requester") {
