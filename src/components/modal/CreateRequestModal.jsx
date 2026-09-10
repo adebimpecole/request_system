@@ -5,7 +5,6 @@ import { setToogleRequestModal } from "../../reduxtoolkit/features/modal/modalSl
 import { pushAlert } from "../../reduxtoolkit/features/alert/alertSlice";
 import { getDate } from "../../utilis/functions";
 import api from "../../utilis/api";
-import { v4 as uuidv4 } from "uuid";
 import { getId, getCompanyId, getUser } from "../../utilis/storage";
 
 const CreateRequestModal = () => {
@@ -25,15 +24,7 @@ const CreateRequestModal = () => {
     amount: "",
     category: "",
     description: "",
-    user_id: id,
-    company_id: getCompanyId(),
-    request_id: "",
-    messages: [],
-    status: "pending",
     department: user.department || "",
-    approval_index: 0,
-    proof: "",
-    date_created: "",
   });
 
   const { title, amount, category, description } = formData;
@@ -41,15 +32,6 @@ const CreateRequestModal = () => {
   const [budget, setBudget] = useState(0);
 
   useEffect(() => {
-    let shortId = uuidv4().split("-")[0];
-    let date = new Date();
-
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      request_id: shortId,
-      date_created: date,
-    }));
-
     api.get(`/company/get_company/${getCompanyId()}`)
       .then((res) => setBudget(res.data?.company?.budget || 0))
       .catch(() => {});
