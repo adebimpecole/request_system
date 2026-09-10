@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import api from "../../utilis/api";
-import { getCompanyId, getId } from "../../utilis/storage";
+import { getCompanyId } from "../../utilis/storage";
 import { setToogleInviteModal } from "../../reduxtoolkit/features/modal/modalSlice";
 
 const InviteMember = () => {
   const dispatch = useDispatch();
   const companyId = getCompanyId();
-  const myId = getId();
 
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
@@ -15,6 +14,7 @@ const InviteMember = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ const InviteMember = () => {
 
   const close = () => {
     dispatch(setToogleInviteModal(false));
-    setEmail(""); setDepartment(""); setError(""); setInviteLink(""); setCopied(false);
+    setEmail(""); setDepartment(""); setError(""); setInviteLink(""); setEmailSent(false); setCopied(false);
   };
 
   const onSubmit = async (e) => {
@@ -34,10 +34,11 @@ const InviteMember = () => {
     setLoading(true);
     try {
       const res = await api.post("/employee/invite", {
-        email, department, company_id: companyId, invited_by: myId,
+        email, department, company_id: companyId,
       });
       const fullLink = `${window.location.origin}${res.data.inviteLink}`;
       setInviteLink(fullLink);
+      setEmailSent(!!res.data.emailSent);
     } catch (err) {
       setError(err.response?.data?.message || "Could not create invite.");
     } finally { setLoading(false); }
@@ -67,7 +68,7 @@ const InviteMember = () => {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Invite created — share this link with {email}. It expires in 24 hours.
+              {emailSent ? `Invite emailed to ${email}. It expires in 24 hours.` : `Invite created — share this link with ${email}. It expires in 24 hours.`}
             </p>
             <div className="flex items-center gap-2">
               <input readOnly value={inviteLink} className="input-field text-xs flex-1" />
@@ -76,7 +77,9 @@ const InviteMember = () => {
               </button>
             </div>
             <p className="text-xs text-slate-400">
-              No email delivery is configured yet, so the link isn't sent automatically — share it directly.
+              {emailSent
+                ? "You can also share the link directly if they don't see the email."
+                : "We couldn't send this by email automatically — share the link above directly."}
             </p>
             <button onClick={close} className="btn-primary w-full">Done</button>
           </div>

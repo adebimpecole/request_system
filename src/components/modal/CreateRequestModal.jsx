@@ -38,6 +38,8 @@ const CreateRequestModal = () => {
 
   const { title, amount, category, description } = formData;
 
+  const [budget, setBudget] = useState(0);
+
   useEffect(() => {
     let shortId = uuidv4().split("-")[0];
     let date = new Date();
@@ -47,7 +49,13 @@ const CreateRequestModal = () => {
       request_id: shortId,
       date_created: date,
     }));
+
+    api.get(`/company/get_company/${getCompanyId()}`)
+      .then((res) => setBudget(res.data?.company?.budget || 0))
+      .catch(() => {});
   }, [id]);
+
+  const exceedsBudget = budget > 0 && Number(amount) > budget;
 
   const onChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -129,12 +137,17 @@ const CreateRequestModal = () => {
                     type="number"
                     name="amount"
                     id="amount"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
+                    className={`bg-gray-50 border text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 ${exceedsBudget ? "border-red-400" : "border-gray-300"}`}
                     placeholder="$2999"
                     value={amount}
                     onChange={onChange}
                     required
                   />
+                  {exceedsBudget && (
+                    <p className="mt-1 text-xs text-red-600">
+                      Exceeds your organization's total budget (${budget.toLocaleString()}).
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2 sm:col-span-1">
                   <label

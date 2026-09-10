@@ -19,6 +19,7 @@ import Requests from "./pages/dashboard/pages/Requests";
 import RequestDetails from "./pages/dashboard/pages/RequestDetails";
 import Alert from "./components/Alert";
 import Settings from "./pages/dashboard/pages/Settings";
+import AuditLog from "./pages/dashboard/pages/AuditLog";
 import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
 import RoleRoute from "./components/RoleRoute";
@@ -56,6 +57,7 @@ function App() {
                 <Route path="requests" element={<Requests />} />
                 <Route path="request-details/:id" element={<RequestDetails />} />
                 <Route path="analytics" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Analytics /></RoleRoute>} />
+                <Route path="activity" element={<RoleRoute allow={["admin"]}><AuditLog /></RoleRoute>} />
                 <Route path="settings" element={<Settings />} />
               </Route>
             </Routes>

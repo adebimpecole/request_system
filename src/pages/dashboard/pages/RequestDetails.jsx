@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import api from "../../../utilis/api";
-import { getRole, getUser, getEmail, getId } from "../../../utilis/storage";
+import { getRole, getUser, getEmail, getId, getCompanyId } from "../../../utilis/storage";
 import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
 
 
@@ -38,6 +38,79 @@ const ProofInput = ({ label, value, onChange, placeholder }) => (
     />
   </div>
 );
+
+// Shown only to the funding approver at their stage — lets them see whether
+// this request fits before they try to delegate funds, rather than only
+// finding out from a rejected submission.
+const FundingBudgetHint = ({ amount }) => {
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      api.get(`/company/get_company/${getCompanyId()}`),
+      api.get(`/request/stats/${getCompanyId()}`),
+    ]).then(([companyRes, statsRes]) => {
+      if (cancelled) return;
+      const budget = companyRes.data?.company?.budget || 0;
+      const disbursed = statsRes.data?.totalAmount || 0;
+      setStatus({ budget, disbursed, remaining: budget - disbursed });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!status || status.budget <= 0) return null;
+
+  const willExceed = amount > status.remaining;
+
+  return (
+    <div className={`rounded-xl px-3 py-2 text-xs ${willExceed ? "bg-red-50 text-red-700 border border-red-200" : "bg-slate-50 text-slate-600 border border-slate-100"}`}>
+      Remaining budget: <strong>${Math.max(status.remaining, 0).toLocaleString()}</strong> of ${status.budget.toLocaleString()}
+      {willExceed && " — delegating funds for this request will exceed it."}
+    </div>
+  );
+};
+
+const ACTIVITY_ICONS = {
+  "request.created": "📝",
+  "request.approved": "✅",
+  "request.rejected": "❌",
+  "request.clarification_requested": "❓",
+  "request.clarification_responded": "💬",
+  "request.closed": "🔒",
+  "request.status_overridden": "🛠️",
+};
+
+const ActivityLog = ({ requestId }) => {
+  const [entries, setEntries] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get(`/audit/request/${requestId}`)
+      .then((res) => { if (!cancelled) setEntries(res.data || []); })
+      .catch(() => { if (!cancelled) setEntries([]); });
+    return () => { cancelled = true; };
+  }, [requestId]);
+
+  if (!entries || entries.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+      <p className="text-sm font-semibold text-slate-800 mb-4">Activity</p>
+      <div className="space-y-4">
+        {entries.map((e) => (
+          <div key={e._id} className="flex gap-3">
+            <span className="text-base leading-none mt-0.5">{ACTIVITY_ICONS[e.action] || "•"}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-slate-700">{e.message}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{new Date(e.createdAt).toLocaleString()}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // main component 
 
@@ -200,7 +273,7 @@ const RequestDetails = () => {
   const needsResponse = !!pendingClarification && (askedByDeptHead ? isRequester : isDeptHead);
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
+    <div className="space-y-6 animate-fade-in">
       {/* Back */}
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
@@ -380,6 +453,8 @@ const RequestDetails = () => {
             </p>
           </div>
 
+          {idx === 1 && <FundingBudgetHint amount={parseFloat(data.amount) || 0} />}
+
           {(idx === 1 || idx === 2) && (
             <ProofInput
               label={idx === 1 ? "Proof of Delegated Funds *" : "Proof of Fund Use *"}
@@ -471,6 +546,8 @@ const RequestDetails = () => {
           </div>
         </div>
       )}
+
+      <ActivityLog requestId={id} />
     </div>
   );
 };
