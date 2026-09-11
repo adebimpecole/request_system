@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import api from "../../../utilis/api";
 import { getCompanyId } from "../../../utilis/storage";
+import { ClipboardDocumentListIcon, UserIcon, TagIcon, CheckCircleIcon, BuildingOfficeIcon } from "../../../components/icons";
 
 const ICONS = {
-  request: "🧾",
-  employee: "👤",
-  department: "🏷️",
-  approver: "✅",
-  company: "🏢",
+  request: <ClipboardDocumentListIcon className="w-4 h-4 text-brand-600" />,
+  employee: <UserIcon className="w-4 h-4 text-violet-600" />,
+  department: <TagIcon className="w-4 h-4 text-amber-600" />,
+  approver: <CheckCircleIcon className="w-4 h-4 text-emerald-600" />,
+  company: <BuildingOfficeIcon className="w-4 h-4 text-slate-600" />,
 };
 
 const ACTION_LABELS = {
@@ -107,7 +108,9 @@ const AuditLog = () => {
           <div className="p-12 flex justify-center"><Spinner /></div>
         ) : visible.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4 text-2xl">📋</div>
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <ClipboardDocumentListIcon className="w-6 h-6 text-slate-400" />
+            </div>
             <p className="font-semibold text-slate-700 mb-1">No activity yet</p>
             <p className="text-sm text-slate-400">Actions taken across your organization will show up here.</p>
           </div>
@@ -115,7 +118,7 @@ const AuditLog = () => {
           <div className="divide-y divide-slate-100">
             {visible.map((e) => (
               <div key={e._id} className="flex gap-3 px-6 py-4">
-                <span className="text-lg leading-none mt-0.5 flex-shrink-0">{ICONS[e.target_type] || "•"}</span>
+                <span className="mt-0.5 flex-shrink-0">{ICONS[e.target_type] || <span className="inline-block w-4 h-4 text-center text-slate-400">•</span>}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">

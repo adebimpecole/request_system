@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { connectSocket, disconnectSocket, getSocket } from "../utilis/socket";
+import { BellIcon, ClipboardDocumentListIcon, InformationCircleIcon } from "./icons";
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -33,9 +34,9 @@ const NotificationBell = () => {
   const clear = () => { setNotifications([]); setOpen(false); };
 
   const typeIcon = (type) => {
-    if (type === "new_request") return "🔔";
-    if (type === "request_update") return "📋";
-    return "ℹ️";
+    if (type === "new_request") return <BellIcon className="w-4 h-4 text-brand-500" />;
+    if (type === "request_update") return <ClipboardDocumentListIcon className="w-4 h-4 text-brand-500" />;
+    return <InformationCircleIcon className="w-4 h-4 text-slate-400" />;
   };
 
   const timeAgo = (iso) => {
@@ -85,7 +86,7 @@ const NotificationBell = () => {
             <ul className="max-h-80 overflow-y-auto divide-y divide-slate-50">
               {notifications.map((n) => (
                 <li key={n.id} className="flex gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                  <span className="text-lg flex-shrink-0 mt-0.5">{typeIcon(n.type)}</span>
+                  <span className="flex-shrink-0 mt-0.5">{typeIcon(n.type)}</span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-800">{n.title}</p>
                     <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{n.body}</p>

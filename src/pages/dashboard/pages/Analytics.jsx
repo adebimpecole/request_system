@@ -6,6 +6,9 @@ import {
 import api from "../../../utilis/api";
 import { getCompanyId, getRole } from "../../../utilis/storage";
 import { getSocket } from "../../../utilis/socket";
+import {
+  LockClosedIcon, ChartBarIcon, CurrencyDollarIcon, ArrowUpRightIcon, BuildingLibraryIcon, ClipboardDocumentListIcon,
+} from "../../../components/icons";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const PALETTE = ["#6366f1", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
@@ -42,7 +45,7 @@ const Spinner = () => (
 
 const EmptyPanel = ({ icon, title, subtitle }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-10 text-center animate-fade-in">
-    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4 text-2xl">{icon}</div>
+    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">{icon}</div>
     <p className="font-semibold text-slate-700 mb-1">{title}</p>
     <p className="text-sm text-slate-400">{subtitle}</p>
   </div>
@@ -94,7 +97,7 @@ const Analytics = () => {
   if (role === "requester") {
     return (
       <EmptyPanel
-        icon="🔒"
+        icon={<LockClosedIcon className="w-6 h-6 text-slate-400" />}
         title="Analytics isn't available for your role"
         subtitle="Ask a department head or admin for spending reports."
       />
@@ -106,7 +109,7 @@ const Analytics = () => {
   if (requests.length === 0) {
     return (
       <EmptyPanel
-        icon="📊"
+        icon={<ChartBarIcon className="w-6 h-6 text-slate-400" />}
         title="No requests yet"
         subtitle="Analytics will populate once requests start coming in."
       />
@@ -127,10 +130,10 @@ const Analytics = () => {
   const yoyChange = prevYearCount > 0 ? Math.round(((yearRequests.length - prevYearCount) / prevYearCount) * 100) : null;
 
   const stats = [
-    { label: "Total Budget", value: fmtMoney(budget), icon: "💰", color: "bg-brand-50 text-brand-600", change: "" },
-    { label: "Disbursed", value: fmtMoney(disbursed), icon: "📤", color: "bg-red-50 text-red-600", change: budget > 0 ? `${utilizationPct.toFixed(1)}%` : "" },
-    { label: "Remaining", value: fmtMoney(remaining), icon: "🏦", color: "bg-emerald-50 text-emerald-600", change: budget > 0 ? `${(100 - utilizationPct).toFixed(1)}%` : "" },
-    { label: "Requests This Year", value: String(yearRequests.length), icon: "📋", color: "bg-violet-50 text-violet-600", change: yoyChange !== null ? `${yoyChange >= 0 ? "+" : ""}${yoyChange}% YoY` : "" },
+    { label: "Total Budget", value: fmtMoney(budget), icon: <CurrencyDollarIcon className="w-5 h-5" />, color: "bg-brand-50 text-brand-600", change: "" },
+    { label: "Disbursed", value: fmtMoney(disbursed), icon: <ArrowUpRightIcon className="w-5 h-5" />, color: "bg-red-50 text-red-600", change: budget > 0 ? `${utilizationPct.toFixed(1)}%` : "" },
+    { label: "Remaining", value: fmtMoney(remaining), icon: <BuildingLibraryIcon className="w-5 h-5" />, color: "bg-emerald-50 text-emerald-600", change: budget > 0 ? `${(100 - utilizationPct).toFixed(1)}%` : "" },
+    { label: "Requests This Year", value: String(yearRequests.length), icon: <ClipboardDocumentListIcon className="w-5 h-5" />, color: "bg-violet-50 text-violet-600", change: yoyChange !== null ? `${yoyChange >= 0 ? "+" : ""}${yoyChange}% YoY` : "" },
   ];
 
   const areaData = MONTHS.map((month, i) => ({
@@ -193,7 +196,7 @@ const Analytics = () => {
                 <span className="text-[11px] font-semibold text-slate-500 rounded-full">{s.change}</span>
               )}
             </div>
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${s.color} text-xl`}>
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${s.color}`}>
                 {s.icon}
               </div>
           </div>

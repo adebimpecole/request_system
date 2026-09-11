@@ -4,6 +4,10 @@ import { useDispatch } from "react-redux";
 import api from "../../../utilis/api";
 import { getRole, getUser, getEmail, getId, getCompanyId } from "../../../utilis/storage";
 import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
+import {
+  PlusCircleIcon, CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon,
+  ChatBubbleIcon, LockClosedIcon, AdjustmentsHorizontalIcon,
+} from "../../../components/icons";
 
 
 const STATUS = {
@@ -72,13 +76,13 @@ const FundingBudgetHint = ({ amount }) => {
 };
 
 const ACTIVITY_ICONS = {
-  "request.created": "📝",
-  "request.approved": "✅",
-  "request.rejected": "❌",
-  "request.clarification_requested": "❓",
-  "request.clarification_responded": "💬",
-  "request.closed": "🔒",
-  "request.status_overridden": "🛠️",
+  "request.created": <PlusCircleIcon className="w-4 h-4 text-brand-600" />,
+  "request.approved": <CheckCircleIcon className="w-4 h-4 text-emerald-600" />,
+  "request.rejected": <XCircleIcon className="w-4 h-4 text-red-600" />,
+  "request.clarification_requested": <QuestionMarkCircleIcon className="w-4 h-4 text-amber-600" />,
+  "request.clarification_responded": <ChatBubbleIcon className="w-4 h-4 text-sky-600" />,
+  "request.closed": <LockClosedIcon className="w-4 h-4 text-slate-600" />,
+  "request.status_overridden": <AdjustmentsHorizontalIcon className="w-4 h-4 text-violet-600" />,
 };
 
 const ActivityLog = ({ requestId }) => {
@@ -100,7 +104,7 @@ const ActivityLog = ({ requestId }) => {
       <div className="space-y-4">
         {entries.map((e) => (
           <div key={e._id} className="flex gap-3">
-            <span className="text-base leading-none mt-0.5">{ACTIVITY_ICONS[e.action] || "•"}</span>
+            <span className="mt-0.5">{ACTIVITY_ICONS[e.action] || <span className="inline-block w-4 h-4 text-center text-slate-400">•</span>}</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm text-slate-700">{e.message}</p>
               <p className="text-xs text-slate-400 mt-0.5">{new Date(e.createdAt).toLocaleString()}</p>

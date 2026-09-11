@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDispatch } from "react-redux";
 import api from "../../../utilis/api";
 import { getCompanyId, getRole, getId } from "../../../utilis/storage";
 import { setToogleInviteModal } from "../../../reduxtoolkit/features/modal/modalSlice";
 import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
+import { EllipsisVerticalIcon, CheckCircleIcon, StarIcon, LockClosedIcon, TrashIcon } from "../../../components/icons";
 
 const roleColors = {
   admin: "bg-brand-50 text-brand-700 ring-brand-200",
@@ -39,6 +41,82 @@ const Spinner = () => (
 );
 
 const FILTERS = ["all", "admin", "department_head", "approver", "requester"];
+
+// Compact dropdown replacing a row of individual buttons in a table's
+// Actions column — keeps the column a single tap target regardless of how
+// many actions apply, instead of a wall of buttons that force horizontal
+// scrolling on narrow screens. Rendered via a portal to <body> with
+// fixed positioning so it isn't clipped by the table's horizontal-scroll
+// wrapper or the card's rounded-corner overflow-hidden.
+const ActionsMenu = ({ actions }) => {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e) => {
+      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    // Any scroll (the page or the table's own horizontal scroll) closes the
+    // menu rather than trying to keep it glued to the button.
+    const onScroll = () => setOpen(false);
+    document.addEventListener("mousedown", onClick);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open]);
+
+  const visible = actions.filter(Boolean);
+  if (visible.length === 0) return null;
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={toggle}
+        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+        aria-label="Actions"
+      >
+        <EllipsisVerticalIcon className="w-5 h-5" />
+      </button>
+      {open && coords && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", top: coords.top, right: coords.right }}
+          className="z-50 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1"
+        >
+          {visible.map((a) => (
+            <button
+              key={a.label}
+              onClick={() => { setOpen(false); a.onClick(); }}
+              disabled={a.disabled}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors disabled:opacity-50 ${
+                a.danger ? "text-red-600 hover:bg-red-50" : "text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              {a.icon}
+              {a.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
 
 const Teams = () => {
   const dispatch = useDispatch();
@@ -259,49 +337,36 @@ const Teams = () => {
                       </span>
                     </td>
                     {(canManageApprovers || canRevokeOrDelete) && (
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                          {canManageApprovers && member.role !== "admin" && (
-                            <>
-                              <button
-                                onClick={() => toggleApproverRole(member, "approver")}
-                                disabled={isBusy}
-                                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all disabled:opacity-50 ${
-                                  member.role === "approver" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-600 hover:bg-violet-50"
-                                }`}
-                              >
-                                {member.role === "approver" ? "Unset Approver" : "Make Approver"}
-                              </button>
-                              <button
-                                onClick={() => toggleApproverRole(member, "department_head")}
-                                disabled={isBusy}
-                                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all disabled:opacity-50 ${
-                                  member.role === "department_head" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600 hover:bg-amber-50"
-                                }`}
-                              >
-                                {member.role === "department_head" ? "Unset Dept Head" : "Make Dept Head"}
-                              </button>
-                            </>
-                          )}
-                          {canRevokeOrDelete && member.role !== "admin" && !isSelf && (
-                            <>
-                              <button
-                                onClick={() => toggleRevoke(member)}
-                                disabled={isBusy}
-                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700 transition-all disabled:opacity-50"
-                              >
-                                {member.status === "suspended" ? "Restore Rights" : "Revoke Rights"}
-                              </button>
-                              <button
-                                onClick={() => deleteMember(member)}
-                                disabled={isBusy}
-                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-all disabled:opacity-50"
-                              >
-                                {isBusy ? <Spinner /> : "Delete"}
-                              </button>
-                            </>
-                          )}
-                        </div>
+                      <td className="px-6 py-4 text-right">
+                        {isBusy ? (
+                          <div className="inline-flex p-1.5"><Spinner /></div>
+                        ) : (
+                          <ActionsMenu
+                            actions={[
+                              canManageApprovers && member.role !== "admin" && {
+                                label: member.role === "approver" ? "Unset approver" : "Make approver",
+                                icon: <CheckCircleIcon className="w-4 h-4" />,
+                                onClick: () => toggleApproverRole(member, "approver"),
+                              },
+                              canManageApprovers && member.role !== "admin" && {
+                                label: member.role === "department_head" ? "Unset dept head" : "Make dept head",
+                                icon: <StarIcon className="w-4 h-4" />,
+                                onClick: () => toggleApproverRole(member, "department_head"),
+                              },
+                              canRevokeOrDelete && member.role !== "admin" && !isSelf && {
+                                label: member.status === "suspended" ? "Restore rights" : "Revoke rights",
+                                icon: <LockClosedIcon className="w-4 h-4" />,
+                                onClick: () => toggleRevoke(member),
+                              },
+                              canRevokeOrDelete && member.role !== "admin" && !isSelf && {
+                                label: "Delete",
+                                icon: <TrashIcon className="w-4 h-4" />,
+                                onClick: () => deleteMember(member),
+                                danger: true,
+                              },
+                            ]}
+                          />
+                        )}
                       </td>
                     )}
                   </tr>
