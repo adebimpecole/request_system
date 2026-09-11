@@ -1,13 +1,10 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../utilis/api";
-import { useDispatch } from "react-redux";
-import { setUserDetails } from "../../reduxtoolkit/features/user/userSlice";
 import { setSession } from "../../utilis/storage";
 
 const LogIn = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,14 +25,6 @@ const LogIn = () => {
         return;
       }
       setSession({ user: res.data.user, token: res.data.token, refreshToken: res.data.refreshToken });
-      dispatch(setUserDetails({
-        id: res.data.user.id,
-        name: res.data.user.companyname,
-        email: res.data.user.email,
-        role: res.data.user.role,
-        company: res.data.user.companyname,
-        token: res.data.token,
-      }));
       navigate("/employeedashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Invalid email or password. Please try again.");

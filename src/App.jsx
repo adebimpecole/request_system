@@ -1,6 +1,5 @@
 import { useSelector } from "react-redux";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { DataProvider } from "./utilis/DataContext";
 
 import LandingPage from "./pages/LandingPage";
 import Home from "./pages/dashboard/pages/Home";
@@ -31,42 +30,44 @@ function App() {
   const toggleRequestModal = useSelector((state) => state.modal.toggleRequestModal);
 
   return (
-    <DataProvider>
-      <>
-        <BrowserRouter>
-          <div>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
+    <>
+      <BrowserRouter>
+        <div>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
 
-              {/* Public-only routes — redirect to dashboard if already authenticated */}
-              <Route path="/pickuser" element={<PublicRoute><PickUser /></PublicRoute>} />
-              <Route path="/login" element={<PublicRoute><LogIn /></PublicRoute>} />
-              <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-              <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
-              <Route path="/employeesignup" element={<PublicRoute><EmployeeSignUp /></PublicRoute>} />
-              <Route path="/businesssignup" element={<PublicRoute><BusinessSignUp /></PublicRoute>} />
-              <Route path="/setup" element={<PublicRoute><SetUp /></PublicRoute>} />
+            {/* Public-only routes — redirect to dashboard if already authenticated */}
+            <Route path="/pickuser" element={<PublicRoute><PickUser /></PublicRoute>} />
+            <Route path="/login" element={<PublicRoute><LogIn /></PublicRoute>} />
+            <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+            <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+            <Route path="/employeesignup" element={<PublicRoute><EmployeeSignUp /></PublicRoute>} />
+            <Route path="/businesssignup" element={<PublicRoute><BusinessSignUp /></PublicRoute>} />
 
-              {/* Protected routes */}
-              <Route
-                path="/employeedashboard"
-                element={<PrivateRoute><Dashboard /></PrivateRoute>}
-              >
-                <Route index element={<Home />} />
-                <Route path="team" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Teams /></RoleRoute>} />
-                <Route path="requests" element={<Requests />} />
-                <Route path="request-details/:id" element={<RequestDetails />} />
-                <Route path="analytics" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Analytics /></RoleRoute>} />
-                <Route path="activity" element={<RoleRoute allow={["admin"]}><AuditLog /></RoleRoute>} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-            </Routes>
-          </div>
-        </BrowserRouter>
-      </>
+            {/* Runs right after registration, once a session already exists — must
+                NOT be PublicRoute, or the freshly-authenticated user gets bounced
+                straight to the dashboard before ever seeing the wizard. */}
+            <Route path="/setup" element={<PrivateRoute><SetUp /></PrivateRoute>} />
+
+            {/* Protected routes */}
+            <Route
+              path="/employeedashboard"
+              element={<PrivateRoute><Dashboard /></PrivateRoute>}
+            >
+              <Route index element={<Home />} />
+              <Route path="team" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Teams /></RoleRoute>} />
+              <Route path="requests" element={<Requests />} />
+              <Route path="request-details/:id" element={<RequestDetails />} />
+              <Route path="analytics" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Analytics /></RoleRoute>} />
+              <Route path="activity" element={<RoleRoute allow={["admin"]}><AuditLog /></RoleRoute>} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </div>
+      </BrowserRouter>
       {toggleRequestModal && <CreateRequestModal />}
       <Alert />
-    </DataProvider>
+    </>
   );
 }
 
