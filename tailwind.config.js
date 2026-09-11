@@ -44,7 +44,7 @@ const config = {
         modal: "0 20px 60px -10px rgb(0 0 0 / 0.25)",
       },
       backgroundImage: {
-        "hero-gradient": "linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #1e3a8a 100%)",
+        "hero-gradient": "linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%)",
         "sidebar-gradient": "linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%)",
         "card-gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
       },

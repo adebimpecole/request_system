@@ -297,7 +297,7 @@ const RequestDetails = () => {
 
       {/* Header */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
-        <div className="bg-gradient-to-r from-brand-900 to-brand-700 px-8 py-6">
+        <div className="bg-gradient-to-r from-brand-900 to-brand-700 px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-white/60 text-xs font-semibold uppercase tracking-wide mb-1">Request #{id?.slice(-8)?.toUpperCase()}</p>
@@ -311,7 +311,7 @@ const RequestDetails = () => {
           </div>
         </div>
 
-        <div className="p-8 space-y-8">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
           {/* Info grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
             {[
@@ -360,30 +360,49 @@ const RequestDetails = () => {
           {/* Timeline */}
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Approval Timeline</p>
-            <div className="flex items-start">
-              {STAGES.map((step, i) => (
-                <div key={step.label} className="flex-1 flex flex-col items-center">
-                  <div className="flex items-center w-full">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${
-                      status === "rejected" && i === STAGES.length - 1 ? "bg-red-500" :
-                      status === "closed"   && i === STAGES.length - 1 ? "bg-slate-400" :
-                      step.done ? "bg-brand-600" : "bg-slate-200"
-                    }`}>
-                      {step.done ? (
-                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                      ) : <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />}
+            {/* Vertical stepper below sm:, horizontal from sm: up — five labeled
+                stages side by side get too cramped under ~640px to keep on
+                one row without the labels colliding. */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-0">
+              {STAGES.map((step, i) => {
+                const circleCls = `w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${
+                  status === "rejected" && i === STAGES.length - 1 ? "bg-red-500" :
+                  status === "closed"   && i === STAGES.length - 1 ? "bg-slate-400" :
+                  step.done ? "bg-brand-600" : "bg-slate-200"
+                }`;
+                const icon = step.done ? (
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />;
+                const labelCls = `text-xs font-semibold ${step.done ? "text-slate-800" : "text-slate-400"}`;
+
+                return (
+                  <div key={step.label} className="sm:flex-1 flex sm:flex-col items-start sm:items-center">
+                    {/* mobile: circle + short connector, label beside it */}
+                    <div className="flex sm:hidden items-stretch gap-3 w-full">
+                      <div className="flex flex-col items-center">
+                        <div className={circleCls}>{icon}</div>
+                        {i < STAGES.length - 1 && (
+                          <div className={`w-0.5 flex-1 min-h-[16px] mt-1 ${STAGES[i + 1].done ? "bg-brand-500" : "bg-slate-200"}`} />
+                        )}
+                      </div>
+                      <p className={`${labelCls} pt-1.5 pb-4`}>{step.label}</p>
                     </div>
-                    {i < STAGES.length - 1 && (
-                      <div className={`flex-1 h-0.5 ${STAGES[i + 1].done ? "bg-brand-500" : "bg-slate-200"}`} />
-                    )}
+
+                    {/* sm and up: circles in a row with a horizontal connector, label centered below */}
+                    <div className="hidden sm:flex items-center w-full">
+                      <div className={circleCls}>{icon}</div>
+                      {i < STAGES.length - 1 && (
+                        <div className={`flex-1 h-0.5 ${STAGES[i + 1].done ? "bg-brand-500" : "bg-slate-200"}`} />
+                      )}
+                    </div>
+                    <p className={`hidden sm:block mt-2 text-center px-1 ${labelCls}`}>
+                      {step.label}
+                    </p>
                   </div>
-                  <p className={`mt-2 text-center px-1 text-xs font-semibold ${step.done ? "text-slate-800" : "text-slate-400"}`}>
-                    {step.label}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

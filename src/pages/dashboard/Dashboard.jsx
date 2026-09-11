@@ -119,7 +119,6 @@ const Dashboard = () => {
           </div>
           <div>
             <span className="font-bold text-white text-base">FinReq</span>
-            <span className="block text-white/40 text-xs capitalize">{approverLabel || `${role} account`}</span>
           </div>
         </div>
       </div>

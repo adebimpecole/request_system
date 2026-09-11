@@ -123,7 +123,7 @@ const BusinessSignUp = () => {
               <input id="email" name="email" type="email" required className="input-field" placeholder="admin@company.com" value={email} onChange={onChange} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col items-start">
                 <label htmlFor="password" className="label">Password</label>
                 <div className="relative w-full">

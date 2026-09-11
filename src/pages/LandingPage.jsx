@@ -1,34 +1,136 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
+const stages = [
+  {
+    n: "STAGE 1",
+    title: "Requester",
+    desc: "Submits the request with an amount, category and description under their department.",
+    tag: "SUBMITTED",
+    bar: "bg-brand-950",
+    tagClass: "bg-brand-50 text-brand-900",
+  },
+  {
+    n: "STAGE 2",
+    title: "Department head",
+    desc: "Reviews the request for their department. Skipped automatically if the department has no head.",
+    tag: "APPROVE / REJECT",
+    bar: "bg-brand-900",
+    tagClass: "bg-brand-50 text-brand-900",
+  },
+  {
+    n: "STAGE 3",
+    title: "Funding approver",
+    desc: "Checks it against the organisation's remaining budget and attaches proof of delegated funds.",
+    tag: "PROOF OF FUNDS",
+    bar: "bg-brand-700",
+    tagClass: "bg-brand-800 text-white",
+  },
+  {
+    n: "STAGE 4",
+    title: "Department head",
+    desc: "Attaches proof that the delegated funds were used as intended.",
+    tag: "PROOF OF USE",
+    bar: "bg-brand-500",
+    tagClass: "bg-brand-800 text-white",
+  },
+  {
+    n: "STAGE 5",
+    title: "Verification approver",
+    desc: "Confirms the proof of use. The request closes as approved, with its full history attached.",
+    tag: "VERIFIED",
+    bar: "bg-brand-300",
+    tagClass: "bg-brand-50 text-brand-900",
+  },
+];
+
+const rules = [
+  {
+    title: "Clarification returns the request",
+    desc: "The department head or verification approver can ask a question instead of approving or rejecting. The request resumes at the same stage once it's answered.",
+  },
+  {
+    title: "Rejection ends the chain",
+    desc: "A rejection closes the request. It stays on record in the audit trail, and the requester can submit a new one.",
+  },
+  {
+    title: "Budget enforced twice",
+    desc: "A request over the total budget is blocked on submission. One that would exceed what's left after already-approved requests is blocked at the funding stage.",
+  },
+];
+
+const steps = [
+  { n: "01", title: "Submit", desc: "An employee raises a request with an amount, category, description and department. Blocked immediately if it exceeds the total budget.", dot: "bg-brand-950" },
+  { n: "02", title: "Route", desc: "It goes to the department head if one is assigned, or straight to the funding approver if not.", dot: "bg-brand-900" },
+  { n: "03", title: "Fund & verify", desc: "The funding approver attaches proof of delegated funds, the department head attaches proof of use, and the verification approver confirms it.", dot: "bg-brand-700" },
+  { n: "04", title: "Close out", desc: "The request is marked approved and its full timestamped history — every approval, rejection and clarification — stays attached.", dot: "bg-brand-500" },
+];
+
+const features = [
+  { title: "Budget-aware approval chain", desc: "One check against the total budget at submission, another against what's actually left once approved requests are accounted for — nothing can be approved beyond what's really available.", grad: "from-brand-950 to-brand-700" },
+  { title: "Department-based routing", desc: "Requests route to the department head automatically. Admins manage departments and can merge one into another without losing history.", grad: "from-brand-900 to-brand-500" },
+  { title: "Clarification threads", desc: "A department head or verification approver can ask a question on the request itself instead of rejecting it outright. It resumes at the same stage once answered.", grad: "from-brand-700 to-brand-300" },
+  { title: "Real-time notifications", desc: "Approvers are notified the moment a request needs them; requesters see every status change as it happens.", grad: "from-brand-950 to-brand-500" },
+  { title: "Full audit trail", desc: "Every submission, approval, rejection and clarification is timestamped, attributed to who did it, and stays with the request.", grad: "from-brand-900 to-brand-300" },
+  { title: "Invite-based onboarding", desc: "Admins invite teammates by email with a company code. Roles — approver, department head — are assigned from the team page as the org grows.", grad: "from-brand-700 to-brand-200" },
+];
+
+const faqs = [
+  { q: "What counts as a financial request?", a: "Any request for company funds — a purchase, reimbursement or similar — submitted with an amount, category and description under a department." },
+  { q: "Who approves a request?", a: "Normally the department head first, then the funding approver, who attaches proof of delegated funds, then the department head again for proof of use, then the verification approver. If a department has no head, it goes straight to the funding approver." },
+  { q: "What happens when an approver asks for clarification?", a: "The request pauses with the question recorded on its thread. Once the requester (or department head, if the question came from verification) answers, it resumes at the same stage rather than starting over." },
+  { q: "How is the budget enforced?", a: "At two points: a request that already exceeds the organisation's total budget is rejected on submission, and one that would exceed what's left after already-approved requests is blocked when the funding approver tries to act on it." },
+  { q: "Can a rejected request be resubmitted?", a: "The rejection and its record stay in the audit trail, and the requester can submit a new request." },
+  { q: "Who can see what?", a: "Requesters see their own requests. Department heads and approvers see what's waiting on their action. Admins see organisation-wide analytics, the full audit trail, and organisation settings." },
+];
 
 const LandingPage = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openFaq, setOpenFaq] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 64);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <div className="min-h-screen font-sans bg-white text-slate-900">
+    <div className="min-h-screen font-sans bg-slate-50 text-brand-950">
 
-      {/* ── NAVBAR ─────────────────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-50 bg-white border-b border-slate-200">
+      <header
+        className={`fixed top-0 inset-x-0 z-50 border-b transition-colors duration-300 ${scrolled
+          ? "bg-white/70 backdrop-blur-md border-brand-100 shadow-sm"
+          : "bg-white/10 backdrop-blur-md border-white/20"
+          }`}
+      >
         <div className="max-w-7xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+            <div className={`w-9 h-9 rounded-xl  flex items-center justify-center ${scrolled ? "bg-brand-900/10" : "bg-white/20"}`}>
+              <svg className={`w-5 h-5 ${scrolled ? "text-brand-950" : "text-white"}`} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span className="font-bold text-[17px] text-slate-900 tracking-tight">FinReq</span>
+            <span className={`font-bold text-[17px] tracking-tight ${scrolled ? "text-brand-950" : "text-white"}`}>FinReq</span>
           </div>
 
-          <div className="hidden md:flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-2">
+          <div className="hidden md:flex items-center gap-6">
+            {[["#how", "How it works"], ["#workflow", "Approval chain"], ["#features", "Features"], ["#faq", "FAQ"]].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                className={`text-sm transition-colors ${scrolled ? "text-slate-600 hover:text-brand-950" : "text-brand-100 hover:text-white"}`}
+              >
+                {label}
+              </a>
+            ))}
+            <Link to="/login" className="text-sm font-semibold bg-brand-400 text-white px-4 py-2 rounded-md hover:bg-brand-200 transition-colors">
               Sign in
             </Link>
-            <Link to="/pickuser" className="btn-primary text-sm">
-              Get started
-            </Link>
           </div>
 
-          <button className="md:hidden p-2 text-slate-600" onClick={() => setMobileOpen(!mobileOpen)}>
+          <button className={`md:hidden p-2 ${scrolled ? "text-brand-950" : "text-white"}`} onClick={() => setMobileOpen(!mobileOpen)}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d={mobileOpen ? "M6 18L18 6M6 6l12 12" : "M3 6h18M3 12h18M3 18h18"} />
             </svg>
@@ -36,234 +138,132 @@ const LandingPage = () => {
         </div>
 
         {mobileOpen && (
-          <div className="md:hidden border-t border-slate-100 bg-white px-6 py-4 space-y-3">
-            <Link to="/login" className="block text-sm font-medium text-slate-700 py-1">Sign in</Link>
-            <Link to="/pickuser" className="block btn-primary text-center text-sm">Get started</Link>
+          <div className="md:hidden border-t border-brand-100 bg-white/95 backdrop-blur-md px-6 py-4 space-y-3">
+            <a href="#how" className="block text-sm text-slate-600 py-1">How it works</a>
+            <a href="#workflow" className="block text-sm text-slate-600 py-1">Approval chain</a>
+            <a href="#features" className="block text-sm text-slate-600 py-1">Features</a>
+            <a href="#faq" className="block text-sm text-slate-600 py-1">FAQ</a>
+            <Link to="/login" className="block text-center text-sm font-semibold bg-brand-300 text-brand-950 px-4 py-2.5 rounded-md">Sign in</Link>
           </div>
         )}
       </header>
 
-
-      {/* ── HERO ───────────────────────────────────────────────── */}
-      <section className="pt-16 bg-slate-50 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-24 lg:py-32">
+      <section className="pt-16 bg-hero-gradient text-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-28">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-            {/* Copy */}
-            <div className="">
-              <span className="inline-block bg-brand-50 text-brand-700 border border-brand-200 text-xs font-semibold px-3 py-1 rounded-full mb-6 tracking-wide">
-                Financial Requisition Platform
+            <div>
+              <span className="inline-block bg-white/10 text-brand-200 border border-brand-300/40 text-xs font-semibold px-3 py-1.5 rounded-full mb-6 tracking-wide uppercase">
+                Financial request management
               </span>
-              <h1 className="text-5xl lg:text-[56px] font-extrabold text-slate-900 leading-[1.1] tracking-tight mb-5">
-                Approve requests.<br />
-                Control spending.<br />
-                <span className="text-brand-600">Stay in control.</span>
+              <h1 className="text-4xl lg:text-[56px] font-extrabold leading-[1.05] tracking-tight mb-5">
+                Every purchase, reimbursement and financial request on one approval chain.
               </h1>
-              <p className="text-slate-500 text-lg leading-relaxed mb-8 max-w-md">
-                A clean, structured system for submitting, reviewing, and approving financial requests — with full visibility at every step.
+              <p className="text-brand-100 text-lg leading-relaxed mb-8 max-w-lg">
+                An employee submits a request. It moves through the department head, the funding approver and the verification approver in turn, with proof of funds, proof of use and clarification captured on the request itself.
               </p>
-              <div className="flex items-center flex-wrap gap-3">
-                <Link to="/pickuser" className="btn-primary">
-                  Create your account
-                </Link>
-                <Link to="/login" className="btn-secondary">
+              <div className="flex items-center flex-wrap gap-3 mb-10">
+                <Link to="/login" className="inline-flex items-center justify-center px-7 py-3.5 bg-brand-300 text-brand-950 font-bold rounded-lg text-sm hover:bg-white transition-all shadow-lg shadow-brand-950/40">
                   Sign in
                 </Link>
+                <Link to="/pickuser" className="inline-flex items-center justify-center px-7 py-3.5 border border-white/40 hover:border-white text-white font-semibold rounded-lg text-sm transition-all">
+                  Create your account
+                </Link>
               </div>
             </div>
 
-            {/* Dashboard mockup */}
-            <div className="hidden lg:block">
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-                {/* Window bar */}
-                <div className="bg-slate-100 border-b border-slate-200 px-4 py-3 flex items-center gap-2">
-                  <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-400" />
-                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                  </div>
-                  <div className="flex-1 bg-white border border-slate-200 rounded-md h-6 mx-3 flex items-center px-3">
-                    <span className="text-[11px] text-slate-400">app.finreq.io/dashboard</span>
-                  </div>
-                </div>
-
-                <div className="flex" style={{ height: 340 }}>
-                  {/* Sidebar */}
-                  <div className="w-44 bg-brand-950 flex flex-col py-4 px-3 gap-1 flex-shrink-0">
-                    <div className="flex items-center gap-2 px-2 py-2 mb-3">
-                      <div className="w-6 h-6 rounded bg-brand-600 flex-shrink-0" />
-                      <span className="text-white text-xs font-bold">FinReq</span>
-                    </div>
-                    {[
-                      { label: "Dashboard", active: true },
-                      { label: "Requests", active: false },
-                      { label: "Analytics", active: false },
-                      { label: "Team", active: false },
-                      { label: "Settings", active: false },
-                    ].map((item) => (
-                      <div key={item.label} className={`flex items-center gap-2 px-2 py-2 rounded-lg ${item.active ? "bg-brand-600" : ""}`}>
-                        <div className={`w-3.5 h-3.5 rounded-sm flex-shrink-0 ${item.active ? "bg-white/40" : "bg-white/10"}`} />
-                        <span className={`text-[11px] font-medium ${item.active ? "text-white" : "text-white/40"}`}>{item.label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 bg-slate-50 p-5 overflow-hidden">
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Overview</p>
-                    <div className="grid grid-cols-3 gap-2.5 mb-4">
-                      {[
-                        { label: "Total", val: "148", color: "bg-brand-50 border-brand-100" },
-                        { label: "Approved", val: "112", color: "bg-emerald-50 border-emerald-100" },
-                        { label: "Pending", val: "36", color: "bg-amber-50 border-amber-100" },
-                      ].map((s) => (
-                        <div key={s.label} className={`rounded-xl border p-3 ${s.color}`}>
-                          <p className="text-[9px] text-slate-500 font-medium mb-1">{s.label}</p>
-                          <p className="text-lg font-extrabold text-slate-800">{s.val}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                      <div className="px-3 py-2.5 border-b border-slate-100">
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Recent Requests</p>
-                      </div>
-                      {[
-                        { title: "Office Supplies", dept: "Operations", amt: "$840", status: "Approved", sc: "text-emerald-600" },
-                        { title: "Q4 Travel Budget", dept: "Sales", amt: "$3,200", status: "Pending", sc: "text-amber-600" },
-                        { title: "Software Licences", dept: "IT", amt: "$1,490", status: "Approved", sc: "text-emerald-600" },
-                        { title: "Training Materials", dept: "HR", amt: "$560", status: "In Review", sc: "text-brand-600" },
-                      ].map((r, i) => (
-                        <div key={i} className="flex items-center justify-between px-3 py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                          <div>
-                            <p className="text-[10px] font-semibold text-slate-700">{r.title}</p>
-                            <p className="text-[9px] text-slate-400">{r.dept}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-800">{r.amt}</p>
-                            <p className={`text-[9px] font-semibold ${r.sc}`}>{r.status}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <div className="bg-white rounded-2xl p-6 shadow-2xl shadow-brand-950/50 text-brand-950">
+              <div className="flex items-center justify-between gap-3 flex-wrap border-b border-brand-100 pb-3.5 mb-4">
+                <span className="font-mono text-xs text-slate-500">REQ-2418</span>
+                <span className="font-mono text-[11px] text-brand-800 bg-brand-100 px-2.5 py-1.5 rounded">AWAITING VERIFICATION</span>
               </div>
+              <p className="text-xl font-semibold mb-1">Field office equipment purchase</p>
+              <p className="text-sm text-slate-500 mb-6">Requested by O. Adeyemi · Operations · $12,400</p>
+
+              <div className="flex flex-col gap-4">
+                {[
+                  { t: "Department head approved", s: "14 Aug, 09:12", dot: "bg-brand-950", muted: false },
+                  { t: "Clarification requested and answered", s: "Vendor quote attached · 15 Aug", dot: "bg-brand-700", muted: false },
+                  { t: "Proof of delegated funds attached", s: "Funding approver · 16 Aug", dot: "bg-brand-500", muted: false },
+                  { t: "Verification of fund use", s: "Pending · assigned to verification approver", dot: "border-2 border-brand-200 bg-white", muted: true },
+                ].map((r) => (
+                  <div key={r.t} className="flex gap-3.5 items-start">
+                    <span className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${r.dot}`} />
+                    <div>
+                      <p className={`text-sm font-semibold ${r.muted ? "text-slate-500" : ""}`}>{r.t}</p>
+                      <p className={`text-[13px] ${r.muted ? "text-slate-400" : "text-slate-500"}`}>{r.s}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-6 bg-slate-50 border-l-[3px] border-brand-500 rounded-r-md px-3.5 py-3 text-[13px] leading-relaxed text-brand-900">
+                The verification approver must confirm the proof of use before this request can close as approved.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-
-      {/* ── FEATURES ───────────────────────────────────────────── */}
-      <section className="py-24 bg-white">
+      <section id="how" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="mb-14 flex flex-col items-center">
-            <h2 className="text-3xl font-extrabold text-slate-900 m-0 mb-3">Everything your team needs</h2>
-            <p className="text-slate-500 text-lg">One platform to handle the full lifecycle of every financial request.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[
-              {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-                  </svg>
-                ),
-                title: "Structured Requests",
-                desc: "Employees submit categorised requests with amount, justification, and supporting details.",
-                color: "bg-brand-50 text-brand-600",
-              },
-              {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                  </svg>
-                ),
-                title: "Multi-level Approvals",
-                desc: "Define vetting and funding approvers per department. Approvals are tracked and timestamped.",
-                color: "bg-emerald-50 text-emerald-600",
-              },
-              {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-                  </svg>
-                ),
-                title: "Spending Analytics",
-                desc: "Visualise department spend, approval rates, and monthly trends from a single dashboard.",
-                color: "bg-violet-50 text-violet-600",
-              },
-              {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                  </svg>
-                ),
-                title: "Team Management",
-                desc: "Invite employees, assign departments and roles, and manage access from one place.",
-                color: "bg-rose-50 text-rose-600",
-              },
-              {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                  </svg>
-                ),
-                title: "Real-time Notifications",
-                desc: "Everyone stays informed — submitters, approvers, and admins — at every stage.",
-                color: "bg-amber-50 text-amber-600",
-              },
-              {
-                icon: (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                  </svg>
-                ),
-                title: "Audit Trail",
-                desc: "Every action is logged. Full transparency for compliance, reviews, and accountability.",
-                color: "bg-sky-50 text-sky-600",
-              },
-            ].map((f) => (
-              <div key={f.title} className="flex flex-col items-center p-6 border border-slate-200 rounded-2xl hover:border-brand-300 hover:shadow-card-hover transition-all duration-200 group">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${f.color}`}>
-                  {f.icon}
-                </div>
-                <h3 className="font-bold text-slate-900 mb-2 text-sm">{f.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed text-center">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-
-      {/* ── HOW IT WORKS ───────────────────────────────────────── */}
-      <section className="py-24 bg-slate-50 border-t border-slate-200">
-        <div className="max-w-5xl mx-auto px-6 lg:px-8">
-          <div className="mb-14 flex flex-col items-center">
-            <h2 className="text-3xl font-extrabold text-slate-900 mb-3">How it works</h2>
-            <p className="text-slate-500 text-lg">From submission to disbursement in four clear steps.</p>
-          </div>
+          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-3">How it works</h2>
+          <p className="text-slate-500 text-lg mb-12 max-w-2xl">Four steps from submission to payment. Each one leaves a record.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { n: "1", title: "Submit", desc: "An employee creates a request — amount, category, and justification." },
-              { n: "2", title: "Vet", desc: "A vetting approver reviews the request for accuracy and policy compliance." },
-              { n: "3", title: "Approve", desc: "The funding authority confirms or declines the disbursement." },
-              { n: "4", title: "Disburse", desc: "Funds are released and all parties receive a notification." },
-            ].map((s, i) => (
-              <div key={s.n} className="relative">
-                {i < 3 && (
-                  <div className="hidden lg:block absolute top-5 left-full w-full h-px border-t-2 border-dashed border-slate-300 z-0" style={{ width: "calc(100% - 20px)", left: "60%" }} />
-                )}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-xl bg-brand-600 text-white font-extrabold text-sm flex items-center justify-center mb-4 shadow-sm">
-                    {s.n}
-                  </div>
-                  <h3 className="font-bold text-slate-900 mb-1.5">{s.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed text-center">{s.desc}</p>
+            {steps.map((s) => (
+              <div key={s.n} className="bg-slate-50 border border-brand-100 rounded-xl p-6">
+                <div className={`w-9 h-9 rounded-full ${s.dot} text-white font-mono text-sm flex items-center justify-center mb-5`}>{s.n}</div>
+                <h3 className="font-semibold text-lg mb-2">{s.title}</h3>
+                <p className="text-[15px] text-slate-500 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="workflow" className="py-20 bg-slate-50 border-t border-brand-100">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-3">The approval chain</h2>
+          <p className="text-slate-500 text-lg mb-12 max-w-2xl">A request advances only when the current stage is satisfied. Denials and clarification requests send it back with a reason.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {stages.map((s) => (
+              <div key={s.n} className="bg-white border border-brand-100 rounded-lg overflow-hidden shadow-sm">
+                <div className={`h-1 ${s.bar}`} />
+                <div className="p-5">
+                  <p className="font-mono text-[11px] tracking-wider text-slate-500 mb-3">{s.n}</p>
+                  <p className="font-semibold text-[17px] mb-2">{s.title}</p>
+                  <p className="text-sm text-slate-500 leading-relaxed mb-4">{s.desc}</p>
+                  <span className={`inline-block font-mono text-[11px] px-2.5 py-1.5 rounded ${s.tagClass}`}>{s.tag}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            {rules.map((r) => (
+              <div key={r.title} className="bg-brand-100/60 rounded-lg px-5 py-5">
+                <p className="font-semibold text-[15px] mb-1.5">{r.title}</p>
+                <p className="text-sm text-brand-900/80 leading-relaxed">{r.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="features" className="py-20 bg-white border-t border-brand-100">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-3">Built for how approvals actually happen</h2>
+          <p className="text-slate-500 text-lg mb-12 max-w-2xl">Budget checks, routing, notifications and the audit trail all live in the request itself — not spread across email and spreadsheets.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((f) => (
+              <div key={f.title} className="rounded-xl overflow-hidden border border-brand-100">
+                <div className={`h-1.5 bg-gradient-to-r ${f.grad}`} />
+                <div className="p-6 bg-slate-50">
+                  <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
+                  <p className="text-[15px] text-slate-500 leading-relaxed">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -271,35 +271,49 @@ const LandingPage = () => {
         </div>
       </section>
 
+      <section id="faq" className="py-20 bg-slate-50 border-t border-brand-100">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-9">Questions</h2>
+          <div className="flex flex-col gap-2.5">
+            {faqs.map((f, i) => (
+              <div key={f.q} className="bg-white border border-brand-100 rounded-lg px-5">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
+                  className="w-full flex items-center justify-between gap-5 py-5 text-left font-semibold text-[17px]"
+                >
+                  <span>{f.q}</span>
+                  <span className="font-mono text-lg text-brand-700 flex-shrink-0">{openFaq === i ? "−" : "+"}</span>
+                </button>
+                {openFaq === i && (
+                  <p className="text-[15px] text-slate-500 leading-relaxed border-t border-brand-50 pt-4 pb-5 pr-8">{f.a}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      {/* ── CTA ────────────────────────────────────────────────── */}
-      <section className="py-20 bg-brand-600">
-        <div className="max-w-3xl mx-auto px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-            Ready to get started?
-          </h2>
-          <p className="text-brand-200 text-lg mb-8">
-            Set up your organization and start managing financial requests today.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/pickuser" className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-brand-700 font-bold rounded-xl text-sm hover:bg-brand-50 transition-all shadow-lg">
-              Create your account
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
-            <Link to="/login" className="inline-flex items-center justify-center px-7 py-3.5 border border-white/30 hover:border-white/60 text-white font-semibold rounded-xl text-sm transition-all">
+      <section className="py-20 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-700">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
+          <div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">Sign in to submit or approve a request.</h2>
+            <p className="text-brand-100 text-lg max-w-md">Use your organisation account. New requesters are set up by their finance administrator.</p>
+          </div>
+          <div className="flex flex-wrap gap-3 lg:justify-end">
+            <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 bg-brand-300 text-brand-950 font-bold rounded-lg text-base hover:bg-white transition-all">
               Sign in
+            </Link>
+            <Link to="/pickuser" className="inline-flex items-center justify-center px-8 py-4 border border-white/40 hover:border-white text-white font-semibold rounded-lg text-base transition-all">
+              Create your account
             </Link>
           </div>
         </div>
       </section>
 
-
-      {/* ── FOOTER ─────────────────────────────────────────────── */}
-      <footer className="bg-slate-900 py-5">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex flex-row justify-center gap-4">
-          <p className="text-slate-500 text-xs text-center">© {new Date().getFullYear()} FinReq. All rights reserved.</p>
+      <footer className="bg-brand-950 py-6">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex flex-wrap justify-between gap-4">
+          <p className="text-brand-200 text-xs">© {new Date().getFullYear()} FinReq · Financial request management</p>
+          <p className="text-brand-200 text-xs font-mono">Internal system</p>
         </div>
       </footer>
 

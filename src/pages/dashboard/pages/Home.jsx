@@ -95,26 +95,30 @@ const EmployeesPanel = () => {
           {employees.map((emp) => {
             const isApprover = emp.role === "approver";
             return (
-              <div key={emp._id} className="flex items-center gap-3 px-6 py-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                  {(emp.name || emp.email)[0].toUpperCase()}
+              <div key={emp._id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-6 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {(emp.name || emp.email)[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 capitalize truncate">{emp.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{emp.email} · {emp.department}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 capitalize truncate">{emp.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{emp.email} · {emp.department}</p>
+                <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${isApprover ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-600"}`}>
+                    {emp.role}
+                  </span>
+                  <button
+                    onClick={() => toggleApprover(emp)}
+                    disabled={togglingId === emp._id}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ${
+                      isApprover ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-brand-50 text-brand-600 hover:bg-brand-100"
+                    }`}
+                  >
+                    {togglingId === emp._id ? <Spinner /> : isApprover ? "Remove Approver" : "Make Approver"}
+                  </button>
                 </div>
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${isApprover ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-600"}`}>
-                  {emp.role}
-                </span>
-                <button
-                  onClick={() => toggleApprover(emp)}
-                  disabled={togglingId === emp._id}
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ${
-                    isApprover ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-brand-50 text-brand-600 hover:bg-brand-100"
-                  }`}
-                >
-                  {togglingId === emp._id ? <Spinner /> : isApprover ? "Remove Approver" : "Make Approver"}
-                </button>
               </div>
             );
           })}

@@ -205,7 +205,7 @@ const EmployeeSignUp = () => {
             </div>
 
             {/* Name */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">First Name</label>
                 <input name="firstName" type="text" required className="input-field" placeholder="Jane" value={firstName} onChange={onChange} />
@@ -236,7 +236,7 @@ const EmployeeSignUp = () => {
             </div>
 
             {/* Password */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Password</label>
                 <div className="relative">
