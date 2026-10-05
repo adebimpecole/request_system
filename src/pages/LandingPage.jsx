@@ -1,78 +1,40 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  Activity, ArrowRight, BadgeCheck, Bell, ChartColumn, Check, ChevronDown,
+  FileText, GitBranch, Menu, MessageCircleQuestion, Receipt, ScrollText, ShieldCheck,
+  Sparkles, User, UserCheck, Users, Wallet, X,
+} from "lucide-react";
+import BrandLogo from "../components/BrandLogo";
 
-const stages = [
-  {
-    n: "STAGE 1",
-    title: "Requester",
-    desc: "Submits the request with an amount, category and description under their department.",
-    tag: "SUBMITTED",
-    bar: "bg-brand-950",
-    tagClass: "bg-brand-50 text-brand-900",
-  },
-  {
-    n: "STAGE 2",
-    title: "Department head",
-    desc: "Reviews the request for their department. Skipped automatically if the department has no head.",
-    tag: "APPROVE / REJECT",
-    bar: "bg-brand-900",
-    tagClass: "bg-brand-50 text-brand-900",
-  },
-  {
-    n: "STAGE 3",
-    title: "Funding approver",
-    desc: "Checks it against the organisation's remaining budget and attaches proof of delegated funds.",
-    tag: "PROOF OF FUNDS",
-    bar: "bg-brand-700",
-    tagClass: "bg-brand-800 text-white",
-  },
-  {
-    n: "STAGE 4",
-    title: "Department head",
-    desc: "Attaches proof that the delegated funds were used as intended.",
-    tag: "PROOF OF USE",
-    bar: "bg-brand-500",
-    tagClass: "bg-brand-800 text-white",
-  },
-  {
-    n: "STAGE 5",
-    title: "Verification approver",
-    desc: "Confirms the proof of use. The request closes as approved, with its full history attached.",
-    tag: "VERIFIED",
-    bar: "bg-brand-300",
-    tagClass: "bg-brand-50 text-brand-900",
-  },
-];
-
-const rules = [
-  {
-    title: "Clarification returns the request",
-    desc: "The department head or verification approver can ask a question instead of approving or rejecting. The request resumes at the same stage once it's answered.",
-  },
-  {
-    title: "Rejection ends the chain",
-    desc: "A rejection closes the request. It stays on record in the audit trail, and the requester can submit a new one.",
-  },
-  {
-    title: "Budget enforced twice",
-    desc: "A request over the total budget is blocked on submission. One that would exceed what's left after already-approved requests is blocked at the funding stage.",
-  },
+const navLinks = [
+  ["#features", "Features"],
+  ["#how", "How it works"],
+  ["#workflow", "Approval chain"],
+  ["#faq", "FAQ"],
 ];
 
 const steps = [
-  { n: "01", title: "Submit", desc: "An employee raises a request with an amount, category, description and department. Blocked immediately if it exceeds the total budget.", dot: "bg-brand-950" },
-  { n: "02", title: "Route", desc: "It goes to the department head if one is assigned, or straight to the funding approver if not.", dot: "bg-brand-900" },
-  { n: "03", title: "Fund & verify", desc: "The funding approver attaches proof of delegated funds, the department head attaches proof of use, and the verification approver confirms it.", dot: "bg-brand-700" },
-  { n: "04", title: "Close out", desc: "The request is marked approved and its full timestamped history — every approval, rejection and clarification — stays attached.", dot: "bg-brand-500" },
+  { n: "01", title: "Submit request", desc: "Raise a request with the amount, category, description and department.", icon: FileText },
+  { n: "02", title: "Approval chain", desc: "It routes to the department head, or straight to the funding approver if there isn't one.", icon: UserCheck },
+  { n: "03", title: "Fund & verify", desc: "Proof of funds and proof of use are attached and confirmed on the request.", icon: Wallet },
+  { n: "04", title: "Audit trail", desc: "Every action is timestamped and attributed for full visibility and compliance.", icon: ScrollText },
+];
+
+const chain = [
+  { title: "Requester", desc: "Submits the request with amount, category and details.", icon: User, tone: "bg-brand-100 text-brand-600" },
+  { title: "Department head", desc: "Reviews it for their department, then confirms proof of use.", icon: Users, tone: "bg-emerald-100 text-emerald-600" },
+  { title: "Funding approver", desc: "Checks remaining budget and attaches proof of funds.", icon: Wallet, tone: "bg-sky-100 text-sky-600" },
+  { title: "Verification approver", desc: "Confirms the proof of use and closes the request.", icon: BadgeCheck, tone: "bg-amber-100 text-amber-600" },
 ];
 
 const features = [
-  { title: "Budget-aware approval chain", desc: "One check against the total budget at submission, another against what's actually left once approved requests are accounted for — nothing can be approved beyond what's really available.", grad: "from-brand-950 to-brand-700" },
-  { title: "Department-based routing", desc: "Requests route to the department head automatically. Admins manage departments and can merge one into another without losing history.", grad: "from-brand-900 to-brand-500" },
-  { title: "Clarification threads", desc: "A department head or verification approver can ask a question on the request itself instead of rejecting it outright. It resumes at the same stage once answered.", grad: "from-brand-700 to-brand-300" },
-  { title: "Real-time notifications", desc: "Approvers are notified the moment a request needs them; requesters see every status change as it happens.", grad: "from-brand-950 to-brand-500" },
-  { title: "Full audit trail", desc: "Every submission, approval, rejection and clarification is timestamped, attributed to who did it, and stays with the request.", grad: "from-brand-900 to-brand-300" },
-  { title: "Invite-based onboarding", desc: "Admins invite teammates by email with a company code. Roles — approver, department head — are assigned from the team page as the org grows.", grad: "from-brand-700 to-brand-200" },
+  { title: "Budget-aware approvals", desc: "Checked at submission and again at funding", icon: Wallet },
+  { title: "Department routing", desc: "Requests go to the right head automatically", icon: GitBranch },
+  { title: "Clarification threads", desc: "Ask questions without rejecting", icon: MessageCircleQuestion },
+  { title: "Real-time notifications", desc: "Know the moment a request needs you", icon: Bell },
+  { title: "Full audit trail", desc: "Every action timestamped and attributed", icon: ScrollText },
+  { title: "Invite-based onboarding", desc: "Bring your team in with a company code", icon: Users },
 ];
 
 const faqs = [
@@ -84,239 +46,346 @@ const faqs = [
   { q: "Who can see what?", a: "Requesters see their own requests. Department heads and approvers see what's waiting on their action. Admins see organisation-wide analytics, the full audit trail, and organisation settings." },
 ];
 
+const SectionIntro = ({ title, desc, link }) => (
+  <div>
+    <h2 className="text-2xl lg:text-[28px] font-extrabold text-navy-900 tracking-tight mb-3">{title}</h2>
+    <p className="text-slate-500 text-sm leading-relaxed mb-4 max-w-xs">{desc}</p>
+    {link && (
+      <a href={link[0]} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700">
+        {link[1]} <ArrowRight className="w-4 h-4" />
+      </a>
+    )}
+  </div>
+);
+
+// Hero illustration: a request card with its approval timeline, plus floating stat and audit cards.
+const HeroMock = () => (
+  <div className="relative mx-auto w-full max-w-xl lg:max-w-none pt-10 pb-6 lg:pr-24">
+    <div className="absolute top-0 right-0 z-20 hidden sm:block rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 px-5 py-3.5 text-white shadow-xl shadow-brand-700/30">
+      <p className="text-[11px] text-white/70">Total requests</p>
+      <p className="flex items-end gap-3">
+        <span className="text-2xl font-bold">24</span>
+        <span className="text-[11px] text-emerald-300 font-semibold mb-1">↑ 12%</span>
+      </p>
+    </div>
+
+    <div className="relative z-10 rounded-2xl bg-white shadow-2xl shadow-brand-900/10 ring-1 ring-slate-100 p-6">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"><Receipt className="w-4 h-4" /></span>
+          <div>
+            <p className="text-xs font-semibold text-navy-900">Financial request</p>
+            <p className="text-[11px] text-slate-400 font-mono">#REQ-2418</p>
+          </div>
+        </div>
+        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 rounded-full px-2.5 py-1">Approved</span>
+      </div>
+
+      <p className="font-bold text-navy-900">Marketing campaign supplies</p>
+      <p className="text-xs text-slate-500 mb-5">Office supplies for the Q3 marketing campaign</p>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        {[["Amount", "$2,500"], ["Department", "Marketing"], ["Request date", "Aug 12"]].map(([k, v]) => (
+          <div key={k}>
+            <p className="text-[11px] text-slate-400 mb-0.5">{k}</p>
+            <p className="text-sm font-bold text-navy-900">{v}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-6">
+        <div className="flex justify-between text-[11px] text-slate-500 mb-1.5">
+          <span>Budget used</span><span className="font-semibold text-navy-900">62%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full w-[62%] rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500" />
+        </div>
+      </div>
+
+      <p className="text-xs font-semibold text-navy-900 mb-3">Approval timeline</p>
+      <ol className="space-y-3">
+        {[
+          ["Submitted by Tunde A.", "Aug 12 · 10:24 AM"],
+          ["Approved by department head", "Aug 12 · 2:15 PM"],
+          ["Funds released by funding approver", "Aug 13 · 9:47 AM"],
+          ["Proof of use verified", "Aug 14 · 11:32 AM"],
+        ].map(([t, s]) => (
+          <li key={t} className="flex items-start gap-3">
+            <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Check className="w-3 h-3 text-white" strokeWidth={3} />
+            </span>
+            <span>
+              <span className="block text-xs font-semibold text-navy-900">{t}</span>
+              <span className="block text-[11px] text-slate-400">{s}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <div className="absolute right-0 bottom-0 z-20 hidden md:block w-48 rounded-xl bg-white shadow-xl shadow-brand-900/10 ring-1 ring-slate-100 p-4">
+      <p className="text-xs font-semibold text-navy-900 mb-3">Audit trail</p>
+      <ol className="relative space-y-3 before:absolute before:left-[4px] before:top-1 before:bottom-1 before:w-px before:bg-slate-200">
+        {[
+          ["Request created", "Tunde A. · Marketing"],
+          ["Amount updated", "Tunde A. · Marketing"],
+          ["Budget check", "Prequisa"],
+          ["Approved", "Department head"],
+          ["Funds released", "Funding approver"],
+        ].map(([t, s]) => (
+          <li key={t} className="relative pl-5">
+            <span className="absolute left-0 top-1 w-[9px] h-[9px] rounded-full bg-white ring-2 ring-emerald-500" />
+            <span className="block text-[11px] font-semibold text-navy-900">{t}</span>
+            <span className="block text-[10px] text-slate-400">{s}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </div>
+);
+
 const LandingPage = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 64);
+    const onScroll = () => setScrolled(window.scrollY > 16);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <div className="min-h-screen font-sans bg-slate-50 text-brand-950">
+    <div className="min-h-screen font-sans bg-white text-navy-900">
 
-      <header
-        className={`fixed top-0 inset-x-0 z-50 border-b transition-colors duration-300 ${scrolled
-          ? "bg-white/70 backdrop-blur-md border-brand-100 shadow-sm"
-          : "bg-white/10 backdrop-blur-md border-white/20"
-          }`}
-      >
+      <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/85 backdrop-blur-md border-b border-slate-100 shadow-sm" : "bg-transparent"}`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 rounded-xl  flex items-center justify-center ${scrolled ? "bg-brand-900/10" : "bg-white/20"}`}>
-              <svg className={`w-5 h-5 ${scrolled ? "text-brand-950" : "text-white"}`} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <span className={`font-bold text-[17px] tracking-tight ${scrolled ? "text-brand-950" : "text-white"}`}>FinReq</span>
-          </div>
+          <BrandLogo />
 
-          <div className="hidden md:flex items-center gap-6">
-            {[["#how", "How it works"], ["#workflow", "Approval chain"], ["#features", "Features"], ["#faq", "FAQ"]].map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                className={`text-sm transition-colors ${scrolled ? "text-slate-600 hover:text-brand-950" : "text-brand-100 hover:text-white"}`}
-              >
-                {label}
-              </a>
+          <nav className="hidden md:flex items-center gap-8">
+            {navLinks.map(([href, label]) => (
+              <a key={href} href={href} className="text-sm text-slate-600 hover:text-navy-900 transition-colors">{label}</a>
             ))}
-            <Link to="/login" className="text-sm font-semibold bg-brand-400 text-white px-4 py-2 rounded-md hover:bg-brand-200 transition-colors">
-              Sign in
+          </nav>
+
+          <div className="hidden md:flex items-center gap-5">
+            <Link to="/login" className="text-sm font-medium text-slate-700 hover:text-navy-900">Sign in</Link>
+            <Link to="/pickuser" className="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg shadow-md shadow-brand-600/25 transition-colors">
+              Get started
             </Link>
           </div>
 
-          <button className={`md:hidden p-2 ${scrolled ? "text-brand-950" : "text-white"}`} onClick={() => setMobileOpen(!mobileOpen)}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d={mobileOpen ? "M6 18L18 6M6 6l12 12" : "M3 6h18M3 12h18M3 18h18"} />
-            </svg>
+          <button className="md:hidden p-2 text-navy-900" aria-label="Toggle menu" onClick={() => setMobileOpen(!mobileOpen)}>
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
         {mobileOpen && (
-          <div className="md:hidden border-t border-brand-100 bg-white/95 backdrop-blur-md px-6 py-4 space-y-3">
-            <a href="#how" className="block text-sm text-slate-600 py-1">How it works</a>
-            <a href="#workflow" className="block text-sm text-slate-600 py-1">Approval chain</a>
-            <a href="#features" className="block text-sm text-slate-600 py-1">Features</a>
-            <a href="#faq" className="block text-sm text-slate-600 py-1">FAQ</a>
-            <Link to="/login" className="block text-center text-sm font-semibold bg-brand-300 text-brand-950 px-4 py-2.5 rounded-md">Sign in</Link>
+          <div className="md:hidden border-t border-slate-100 bg-white px-6 py-4 space-y-1 shadow-lg">
+            {navLinks.map(([href, label]) => (
+              <a key={href} href={href} onClick={() => setMobileOpen(false)} className="block text-sm text-slate-600 py-2">{label}</a>
+            ))}
+            <div className="grid grid-cols-2 gap-3 pt-3">
+              <Link to="/login" className="text-center text-sm font-semibold border border-slate-200 text-navy-900 px-4 py-2.5 rounded-lg">Sign in</Link>
+              <Link to="/pickuser" className="text-center text-sm font-semibold bg-brand-600 text-white px-4 py-2.5 rounded-lg">Get started</Link>
+            </div>
           </div>
         )}
       </header>
 
-      <section className="pt-16 bg-hero-gradient text-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-28">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+      {/* Hero */}
+      <section className="relative overflow-hidden pt-16 bg-gradient-to-b from-brand-50 via-brand-50/60 to-white">
+        <div className="absolute top-24 right-[-10%] w-[46rem] h-[46rem] rounded-full bg-brand-300/30 blur-3xl" aria-hidden="true" />
+        <div className="absolute -top-20 -left-20 w-80 h-80 rounded-full bg-brand-200/40 blur-3xl" aria-hidden="true" />
 
-            <div>
-              <span className="inline-block bg-white/10 text-brand-200 border border-brand-300/40 text-xs font-semibold px-3 py-1.5 rounded-full mb-6 tracking-wide uppercase">
-                Financial request management
-              </span>
-              <h1 className="text-4xl lg:text-[56px] font-extrabold leading-[1.05] tracking-tight mb-5">
-                Every purchase, reimbursement and financial request on one approval chain.
-              </h1>
-              <p className="text-brand-100 text-lg leading-relaxed mb-8 max-w-lg">
-                An employee submits a request. It moves through the department head, the funding approver and the verification approver in turn, with proof of funds, proof of use and clarification captured on the request itself.
-              </p>
-              <div className="flex items-center flex-wrap gap-3 mb-10">
-                <Link to="/login" className="inline-flex items-center justify-center px-7 py-3.5 bg-brand-300 text-brand-950 font-bold rounded-lg text-sm hover:bg-white transition-all shadow-lg shadow-brand-950/40">
-                  Sign in
-                </Link>
-                <Link to="/pickuser" className="inline-flex items-center justify-center px-7 py-3.5 border border-white/40 hover:border-white text-white font-semibold rounded-lg text-sm transition-all">
-                  Create your account
-                </Link>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 shadow-2xl shadow-brand-950/50 text-brand-950">
-              <div className="flex items-center justify-between gap-3 flex-wrap border-b border-brand-100 pb-3.5 mb-4">
-                <span className="font-mono text-xs text-slate-500">REQ-2418</span>
-                <span className="font-mono text-[11px] text-brand-800 bg-brand-100 px-2.5 py-1.5 rounded">AWAITING VERIFICATION</span>
-              </div>
-              <p className="text-xl font-semibold mb-1">Field office equipment purchase</p>
-              <p className="text-sm text-slate-500 mb-6">Requested by O. Adeyemi · Operations · $12,400</p>
-
-              <div className="flex flex-col gap-4">
-                {[
-                  { t: "Department head approved", s: "14 Aug, 09:12", dot: "bg-brand-950", muted: false },
-                  { t: "Clarification requested and answered", s: "Vendor quote attached · 15 Aug", dot: "bg-brand-700", muted: false },
-                  { t: "Proof of delegated funds attached", s: "Funding approver · 16 Aug", dot: "bg-brand-500", muted: false },
-                  { t: "Verification of fund use", s: "Pending · assigned to verification approver", dot: "border-2 border-brand-200 bg-white", muted: true },
-                ].map((r) => (
-                  <div key={r.t} className="flex gap-3.5 items-start">
-                    <span className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${r.dot}`} />
-                    <div>
-                      <p className={`text-sm font-semibold ${r.muted ? "text-slate-500" : ""}`}>{r.t}</p>
-                      <p className={`text-[13px] ${r.muted ? "text-slate-400" : "text-slate-500"}`}>{r.s}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-6 bg-slate-50 border-l-[3px] border-brand-500 rounded-r-md px-3.5 py-3 text-[13px] leading-relaxed text-brand-900">
-                The verification approver must confirm the proof of use before this request can close as approved.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="how" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-3">How it works</h2>
-          <p className="text-slate-500 text-lg mb-12 max-w-2xl">Four steps from submission to payment. Each one leaves a record.</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((s) => (
-              <div key={s.n} className="bg-slate-50 border border-brand-100 rounded-xl p-6">
-                <div className={`w-9 h-9 rounded-full ${s.dot} text-white font-mono text-sm flex items-center justify-center mb-5`}>{s.n}</div>
-                <h3 className="font-semibold text-lg mb-2">{s.title}</h3>
-                <p className="text-[15px] text-slate-500 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="workflow" className="py-20 bg-slate-50 border-t border-brand-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-3">The approval chain</h2>
-          <p className="text-slate-500 text-lg mb-12 max-w-2xl">A request advances only when the current stage is satisfied. Denials and clarification requests send it back with a reason.</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {stages.map((s) => (
-              <div key={s.n} className="bg-white border border-brand-100 rounded-lg overflow-hidden shadow-sm">
-                <div className={`h-1 ${s.bar}`} />
-                <div className="p-5">
-                  <p className="font-mono text-[11px] tracking-wider text-slate-500 mb-3">{s.n}</p>
-                  <p className="font-semibold text-[17px] mb-2">{s.title}</p>
-                  <p className="text-sm text-slate-500 leading-relaxed mb-4">{s.desc}</p>
-                  <span className={`inline-block font-mono text-[11px] px-2.5 py-1.5 rounded ${s.tagClass}`}>{s.tag}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-            {rules.map((r) => (
-              <div key={r.title} className="bg-brand-100/60 rounded-lg px-5 py-5">
-                <p className="font-semibold text-[15px] mb-1.5">{r.title}</p>
-                <p className="text-sm text-brand-900/80 leading-relaxed">{r.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="features" className="py-20 bg-white border-t border-brand-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-3">Built for how approvals actually happen</h2>
-          <p className="text-slate-500 text-lg mb-12 max-w-2xl">Budget checks, routing, notifications and the audit trail all live in the request itself — not spread across email and spreadsheets.</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((f) => (
-              <div key={f.title} className="rounded-xl overflow-hidden border border-brand-100">
-                <div className={`h-1.5 bg-gradient-to-r ${f.grad}`} />
-                <div className="p-6 bg-slate-50">
-                  <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
-                  <p className="text-[15px] text-slate-500 leading-relaxed">{f.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="faq" className="py-20 bg-slate-50 border-t border-brand-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <h2 className="text-3xl lg:text-[38px] font-extrabold tracking-tight mb-9">Questions</h2>
-          <div className="flex flex-col gap-2.5">
-            {faqs.map((f, i) => (
-              <div key={f.q} className="bg-white border border-brand-100 rounded-lg px-5">
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? -1 : i)}
-                  className="w-full flex items-center justify-between gap-5 py-5 text-left font-semibold text-[17px]"
-                >
-                  <span>{f.q}</span>
-                  <span className="font-mono text-lg text-brand-700 flex-shrink-0">{openFaq === i ? "−" : "+"}</span>
-                </button>
-                {openFaq === i && (
-                  <p className="text-[15px] text-slate-500 leading-relaxed border-t border-brand-50 pt-4 pb-5 pr-8">{f.a}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-20 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-700">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 pt-14 pb-20 lg:pt-20 lg:pb-24 grid lg:grid-cols-2 gap-14 items-center">
           <div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">Sign in to submit or approve a request.</h2>
-            <p className="text-brand-100 text-lg max-w-md">Use your organisation account. New requesters are set up by their finance administrator.</p>
+            <span className="inline-flex items-center gap-1.5 bg-white/70 ring-1 ring-brand-200 text-brand-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
+              <Sparkles className="w-3.5 h-3.5" /> Smarter financial requests. Greater control.
+            </span>
+            <h1 className="text-4xl sm:text-5xl lg:text-[46px] font-extrabold leading-[1.1] tracking-tight mb-5">
+              Manage every purchase, reimbursement and financial request through one approval chain.
+            </h1>
+            <p className="text-slate-600 text-base sm:text-lg leading-relaxed mb-8 max-w-xl">
+              Prequisa brings your spending, approvals and financial records together in one simple, secure platform. Reduce manual work, improve visibility and stay compliant — from request to reimbursement.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 mb-10">
+              <Link to="/pickuser" className="inline-flex items-center gap-2 px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg text-sm shadow-lg shadow-brand-600/30 transition-colors">
+                Get started free <ArrowRight className="w-4 h-4" />
+              </Link>
+              <a href="#how" className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-navy-900 font-semibold rounded-lg text-sm ring-1 ring-slate-200 shadow-sm transition-colors">
+                See how it works
+              </a>
+            </div>
+            <div className="inline-flex items-center gap-3 rounded-xl bg-white/80 ring-1 ring-slate-100 shadow-sm px-4 py-3">
+              <span className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"><ChartColumn className="w-5 h-5" /></span>
+              <span className="text-xs leading-snug">
+                <span className="block font-semibold text-navy-900">More control</span>
+                <span className="block text-slate-500">Less manual work</span>
+              </span>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3 lg:justify-end">
-            <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 bg-brand-300 text-brand-950 font-bold rounded-lg text-base hover:bg-white transition-all">
-              Sign in
-            </Link>
-            <Link to="/pickuser" className="inline-flex items-center justify-center px-8 py-4 border border-white/40 hover:border-white text-white font-semibold rounded-lg text-base transition-all">
-              Create your account
-            </Link>
+
+          <HeroMock />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how" className="py-20 scroll-mt-16">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 grid lg:grid-cols-[18rem_1fr] gap-12">
+          <SectionIntro
+            title="How it works"
+            desc="From request to reimbursement, Prequisa keeps everything moving with complete transparency."
+            link={["#workflow", "Learn more"]}
+          />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {steps.map((s, i) => {
+              const Icon = s.icon;
+              return (
+                <div key={s.n} className="relative">
+                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white ring-1 ring-brand-200 text-xs font-bold text-brand-600 mb-3">{s.n}</span>
+                  <span className="w-12 h-12 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center mb-4">
+                    <Icon className="w-5 h-5" />
+                  </span>
+                  {i < steps.length - 1 && (
+                    <ArrowRight className="hidden lg:block absolute top-[4.25rem] -right-6 w-4 h-4 text-slate-300" />
+                  )}
+                  <h3 className="font-bold text-sm mb-1.5">{s.title}</h3>
+                  <p className="text-[13px] text-slate-500 leading-relaxed">{s.desc}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <footer className="bg-brand-950 py-6">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 flex flex-wrap justify-between gap-4">
-          <p className="text-brand-200 text-xs">© {new Date().getFullYear()} FinReq · Financial request management</p>
-          <p className="text-brand-200 text-xs font-mono">Internal system</p>
+      {/* Approval chain */}
+      <section id="workflow" className="py-20 bg-slate-50/70 border-y border-slate-100 scroll-mt-16">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 grid lg:grid-cols-[18rem_1fr] gap-12 items-center">
+          <SectionIntro
+            title="The approval chain"
+            desc="A request advances only when the current stage is satisfied. Rejections and clarification requests are recorded with a reason."
+            link={["#faq", "Explore approval rules"]}
+          />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {chain.map((c, i) => {
+              const Icon = c.icon;
+              return (
+                <div key={c.title} className="relative">
+                  <div className="h-full rounded-xl bg-white ring-1 ring-slate-100 shadow-card p-5">
+                    <span className={`w-9 h-9 rounded-full ${c.tone} flex items-center justify-center mb-4`}><Icon className="w-4 h-4" /></span>
+                    <p className="font-bold text-sm mb-1.5">{c.title}</p>
+                    <p className="text-[13px] text-slate-500 leading-relaxed">{c.desc}</p>
+                  </div>
+                  {i < chain.length - 1 && (
+                    <ArrowRight className="hidden lg:block absolute top-1/2 -right-5 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="features" className="py-20 scroll-mt-16">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="rounded-3xl bg-gradient-to-br from-brand-50 to-white ring-1 ring-brand-100 p-6 sm:p-10 grid lg:grid-cols-[1fr_20rem] gap-8 items-stretch">
+            <div>
+              <h2 className="text-2xl lg:text-[28px] font-extrabold tracking-tight mb-2">Built for how approvals actually happen</h2>
+              <p className="text-slate-500 text-sm leading-relaxed mb-8 max-w-lg">
+                Everything you need to manage spending, reduce manual work, and stay compliant — all in one place.
+              </p>
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {features.map((f) => {
+                  const Icon = f.icon;
+                  return (
+                    <div key={f.title} className="flex items-start gap-3 rounded-xl bg-white ring-1 ring-slate-100 shadow-sm p-4">
+                      <span className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0"><Icon className="w-4 h-4" /></span>
+                      <span>
+                        <span className="block text-sm font-semibold leading-snug">{f.title}</span>
+                        <span className="block text-xs text-slate-500 mt-0.5">{f.desc}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl bg-navy-gradient p-6 text-white min-h-[16rem] flex flex-col">
+              <div className="flex items-start justify-between">
+                <p className="font-semibold leading-snug">Greater control<br />of your finances</p>
+                <span className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center"><Activity className="w-4 h-4" /></span>
+              </div>
+              <svg className="mt-auto w-full h-32" viewBox="0 0 280 120" fill="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="fr-area" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#818cf8" stopOpacity=".45" />
+                    <stop offset="100%" stopColor="#818cf8" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d="M0 95 C30 90 45 70 70 76 S110 92 135 70 S175 40 200 52 S245 30 280 14 V120 H0Z" fill="url(#fr-area)" />
+                <path d="M0 95 C30 90 45 70 70 76 S110 92 135 70 S175 40 200 52 S245 30 280 14" stroke="#a5b4fc" strokeWidth="2" />
+                {[[196, 70], [220, 56], [244, 40], [268, 24]].map(([x, y], i) => (
+                  <rect key={x} x={x} y={y} width="14" height={120 - y} rx="3" fill={i === 3 ? "#6366f1" : "#4f46e5"} opacity={0.55 + i * 0.15} />
+                ))}
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="pb-20 scroll-mt-20">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 grid lg:grid-cols-[18rem_1fr] gap-12">
+          <SectionIntro title="Questions" desc="Everything you need to know about Prequisa." />
+          <div className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-100 bg-white">
+            {faqs.map((f, i) => {
+              const open = openFaq === i;
+              return (
+                <div key={f.q} className="px-5">
+                  <button
+                    onClick={() => setOpenFaq(open ? -1 : i)}
+                    aria-expanded={open}
+                    className="w-full flex items-center justify-between gap-5 py-4 text-left text-sm font-semibold text-navy-900"
+                  >
+                    {f.q}
+                    <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+                  </button>
+                  {open && <p className="text-sm text-slate-500 leading-relaxed pb-4 pr-8">{f.a}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="px-6 lg:px-8 pb-12">
+        <div className="max-w-7xl mx-auto rounded-2xl bg-gradient-to-r from-brand-700 via-brand-600 to-brand-700 px-6 sm:px-10 py-7 flex flex-col sm:flex-row sm:items-center gap-5 shadow-xl shadow-brand-700/20">
+          <span className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0"><ShieldCheck className="w-6 h-6 text-white" /></span>
+          <div className="flex-1">
+            <p className="text-white font-bold text-lg">Ready to simplify your financial requests?</p>
+            <p className="text-brand-100 text-sm">Join teams that spend less time on paperwork and more time on what matters.</p>
+          </div>
+          <Link to="/pickuser" className="inline-flex items-center justify-center gap-2 bg-white hover:bg-brand-50 text-brand-700 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">
+            Get started free <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </section>
+
+      <footer className="border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6 flex flex-wrap items-center justify-between gap-4">
+          <BrandLogo size="sm" />
+          <div className="flex flex-wrap items-center gap-6 text-xs text-slate-500">
+            <span>© {new Date().getFullYear()} Prequisa. All rights reserved.</span>
+            <Link to="/login" className="hover:text-navy-900">Sign in</Link>
+            <Link to="/pickuser" className="hover:text-navy-900">Create account</Link>
+            <a href="#faq" className="hover:text-navy-900">FAQ</a>
+          </div>
         </div>
       </footer>
-
     </div>
   );
 };

@@ -1,7 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
-  toggleRequestModal: false,
   toggleInviteModal: false,
 };
 
@@ -9,9 +8,6 @@ const modalSlice = createSlice({
   name: "modal",
   initialState,
   reducers: {
-    setToogleRequestModal: (state, action) => {
-      state.toggleRequestModal = action.payload;
-    },
     setToogleInviteModal: (state, action) => {
       state.toggleInviteModal = action.payload;
     },
@@ -19,7 +15,6 @@ const modalSlice = createSlice({
 });
 
 export const {
-  setToogleRequestModal,
   setToogleInviteModal,
 } = modalSlice.actions;
 

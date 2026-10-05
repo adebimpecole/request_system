@@ -1,4 +1,3 @@
-import { useSelector } from "react-redux";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import LandingPage from "./pages/LandingPage";
@@ -13,8 +12,8 @@ import ResetPassword from "./pages/authentication/ResetPassword";
 import SetUp from "./pages/SetUp";
 import EmployeeSignUp from "./pages/authentication/signup/EmployeeSignUp";
 import BusinessSignUp from "./pages/authentication/signup/BusinessSignUp";
-import CreateRequestModal from "./components/modal/CreateRequestModal";
 import Requests from "./pages/dashboard/pages/Requests";
+import NewRequest from "./pages/dashboard/pages/NewRequest";
 import RequestDetails from "./pages/dashboard/pages/RequestDetails";
 import Alert from "./components/Alert";
 import Settings from "./pages/dashboard/pages/Settings";
@@ -22,13 +21,11 @@ import AuditLog from "./pages/dashboard/pages/AuditLog";
 import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
 import RoleRoute from "./components/RoleRoute";
-import { NON_REQUESTER_ROLES } from "./utilis/roles";
+import { NON_REQUESTER_ROLES, REQUEST_CREATOR_ROLES } from "./utilis/roles";
 
 import "./App.css";
 
 function App() {
-  const toggleRequestModal = useSelector((state) => state.modal.toggleRequestModal);
-
   return (
     <>
       <BrowserRouter>
@@ -44,28 +41,27 @@ function App() {
             <Route path="/employeesignup" element={<PublicRoute><EmployeeSignUp /></PublicRoute>} />
             <Route path="/businesssignup" element={<PublicRoute><BusinessSignUp /></PublicRoute>} />
 
-            {/* Runs right after registration, once a session already exists — must
-                NOT be PublicRoute, or the freshly-authenticated user gets bounced
-                straight to the dashboard before ever seeing the wizard. */}
-            <Route path="/setup" element={<PrivateRoute><SetUp /></PrivateRoute>} />
+            {/* Protected routes — setup and the dashboard share one shell (sidebar + top bar) */}
+            <Route element={<PrivateRoute><Dashboard /></PrivateRoute>}>
+              {/* Runs right after registration, once a session already exists — must
+                  NOT be PublicRoute, or the freshly-authenticated user gets bounced
+                  straight to the dashboard before ever seeing the wizard. */}
+              <Route path="/setup" element={<SetUp />} />
 
-            {/* Protected routes */}
-            <Route
-              path="/employeedashboard"
-              element={<PrivateRoute><Dashboard /></PrivateRoute>}
-            >
-              <Route index element={<Home />} />
-              <Route path="team" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Teams /></RoleRoute>} />
-              <Route path="requests" element={<Requests />} />
-              <Route path="request-details/:id" element={<RequestDetails />} />
-              <Route path="analytics" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Analytics /></RoleRoute>} />
-              <Route path="activity" element={<RoleRoute allow={["admin"]}><AuditLog /></RoleRoute>} />
-              <Route path="settings" element={<Settings />} />
+              <Route path="/employeedashboard">
+                <Route index element={<Home />} />
+                <Route path="team" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Teams /></RoleRoute>} />
+                <Route path="requests" element={<Requests />} />
+                <Route path="requests/new" element={<RoleRoute allow={REQUEST_CREATOR_ROLES}><NewRequest /></RoleRoute>} />
+                <Route path="request-details/:id" element={<RequestDetails />} />
+                <Route path="analytics" element={<RoleRoute allow={NON_REQUESTER_ROLES}><Analytics /></RoleRoute>} />
+                <Route path="activity" element={<RoleRoute allow={["admin"]}><AuditLog /></RoleRoute>} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
             </Route>
           </Routes>
         </div>
       </BrowserRouter>
-      {toggleRequestModal && <CreateRequestModal />}
       <Alert />
     </>
   );

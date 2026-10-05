@@ -1,6 +1,6 @@
-# FinReq — Frontend
+# Prequisa — Frontend
 
-The web client for **FinReq**, a multi-tenant financial requisition
+The web client for **Prequisa**, a multi-tenant financial requisition
 (expense/purchase approval) system. This is a single-page React app: a
 public marketing/landing page plus an authenticated dashboard where
 requesters submit requests, approvers act on them, and admins manage the

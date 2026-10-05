@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -22,7 +22,7 @@
 body {
   margin: 0;
   /* background-color: #f8fafc; */
-  color: #0f172a;
+  color: #161b52; /* navy-900 */
 }
 
 @layer components {
@@ -36,7 +36,7 @@ body {
     @apply inline-flex items-center justify-center px-5 py-2.5 bg-transparent hover:bg-white/10 text-white font-semibold rounded-xl border border-white/30 transition-all duration-200 text-sm;
   }
   .input-field {
-    @apply block w-full rounded-xl border-0 py-3 px-4 text-slate-900 bg-white shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-brand-500 text-[13px] transition-all duration-200;
+    @apply block w-full rounded-xl border-0 py-3 px-4 text-navy-900 bg-white shadow-sm ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-brand-500 text-[13px] transition-all duration-200;
   }
   .label {
     @apply block text-[13px] font-medium text-slate-700 mb-1.5;

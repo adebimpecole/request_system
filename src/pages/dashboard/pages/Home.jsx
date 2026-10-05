@@ -1,49 +1,57 @@
 import React, { useEffect, useState } from "react";
-import api from "../../../utilis/api";
 import { useNavigate } from "react-router-dom";
+import {
+  ArrowRight, ChevronRight, CircleAlert, CircleCheck, CircleX, Clock, FileText, Info,
+  MessageCircleQuestion, Plus, Settings, Users,
+} from "lucide-react";
+import { Card, PrimaryButton, SecondaryButton, StatGrid, StatusBadge, pct } from "../../../components/ui/PageKit";
+import api from "../../../utilis/api";
 import { getFormattedDate, needsMyAction, needsMyResponse } from "../../../utilis/functions";
 import { getId, getDisplayName, getRole, getEmail, getUser, getCompanyId, getToken } from "../../../utilis/storage";
 import { getSocket } from "../../../utilis/socket";
+import { canCreateRequests } from "../../../utilis/roles";
 
-const StatCard = ({ title, value, icon, colorClass, change, up }) => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 flex flex-col gap-4 hover:shadow-card-hover transition-shadow duration-200">
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{title}</p>
-        <p className="text-3xl font-extrabold text-slate-900">{value}</p>
-      </div>
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClass}`}>
-        {icon}
-      </div>
-    </div>
-    {change && (
-      <div className={`flex items-center gap-1 text-xs font-medium ${up ? "text-emerald-600" : "text-red-500"}`}>
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d={up ? "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" : "M2.25 6L9 12.75l4.306-4.306a11.95 11.95 0 015.814 5.519l2.74 1.22m0 0l-5.94 2.28m5.94-2.28l-2.28-5.941"} />
-        </svg>
-        {change} vs last month
-      </div>
-    )}
-  </div>
-);
+const money = (n) => `$${parseFloat(n || 0).toLocaleString()}`;
+const shortId = (id) => (id ? `#${String(id).slice(-8).toUpperCase()}` : "—");
 
-const statusBadge = (status) => {
-  const map = {
-    approved: "status-approved",
-    rejected: "status-rejected",
-    pending: "status-pending",
-    "in-review": "status-review",
-    vetted: "status-review",
-  };
-  const cls = map[(status || "").toLowerCase()] || "status-pending";
-  return <span className={cls}><span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />{status || "Pending"}</span>;
-};
-
-const Spinner = () => (
-  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+const Spinner = ({ className = "w-4 h-4" }) => (
+  <svg className={`${className} animate-spin`} fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
   </svg>
+);
+
+const CardHeader = ({ title, sub, action, badge }) => (
+  <div className="px-5 sm:px-6 py-4 flex items-center justify-between gap-3 border-b border-slate-100">
+    <div className="min-w-0">
+      <h2 className="font-bold text-navy-900 text-[15px] flex items-center gap-2">
+        {title}
+        {badge > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{badge}</span>}
+      </h2>
+      {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+    </div>
+    {action}
+  </div>
+);
+
+const ViewAll = ({ onClick }) => (
+  <button onClick={onClick} className="text-sm font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 flex-shrink-0">
+    View all <ArrowRight className="w-4 h-4" />
+  </button>
+);
+
+// Compact shortcut row used in the Quick links card
+const QuickLink = ({ icon: Icon, title, desc, onClick }) => (
+  <button onClick={onClick} className="group w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-slate-50 transition-colors">
+    <span className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+      <Icon className="w-4 h-4" />
+    </span>
+    <span className="flex-1 min-w-0">
+      <span className="block text-sm font-semibold text-navy-900">{title}</span>
+      <span className="block text-xs text-slate-500 truncate">{desc}</span>
+    </span>
+    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-brand-500 transition-colors" />
+  </button>
 );
 
 const EmployeesPanel = () => {
@@ -81,11 +89,8 @@ const EmployeesPanel = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
-      <div className="px-6 py-5 border-b border-slate-100">
-        <h2 className="font-bold text-slate-900">Employees</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Quickly appoint or remove approvers for your organization</p>
-      </div>
+    <Card>
+      <CardHeader title="Employees" sub="Quickly appoint or remove approvers for your organization" />
       {loading ? (
         <div className="p-8 flex items-center justify-center gap-2 text-slate-400 text-sm"><Spinner />Loading employees...</div>
       ) : employees.length === 0 ? (
@@ -95,24 +100,24 @@ const EmployeesPanel = () => {
           {employees.map((emp) => {
             const isApprover = emp.role === "approver";
             return (
-              <div key={emp._id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-6 py-3">
+              <div key={emp._id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-5 sm:px-6 py-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  <span className="w-9 h-9 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
                     {(emp.name || emp.email)[0].toUpperCase()}
-                  </div>
+                  </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 capitalize truncate">{emp.name}</p>
+                    <p className="text-sm font-semibold text-navy-900 capitalize truncate">{emp.name}</p>
                     <p className="text-xs text-slate-500 truncate">{emp.email} · {emp.department}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${isApprover ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-600"}`}>
-                    {emp.role}
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${isApprover ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-600"}`}>
+                    {{ admin: "Admin", approver: "Approver", department_head: "Department Head", requester: "Requester" }[emp.role] || emp.role}
                   </span>
                   <button
                     onClick={() => toggleApprover(emp)}
                     disabled={togglingId === emp._id}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ${
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
                       isApprover ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-brand-50 text-brand-600 hover:bg-brand-100"
                     }`}
                   >
@@ -124,7 +129,7 @@ const EmployeesPanel = () => {
           })}
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
@@ -135,10 +140,12 @@ const Home = () => {
   const [actionRequests, setActionRequests] = useState([]);
   const [actionLoaded, setActionLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState([]);
   const user = getDisplayName() || "User";
   const role = getRole();
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  // Admins and approvers see the organization's latest requests; everyone else sees their own
+  const companyWide = role === "admin" || role === "approver";
+  const canCreate = canCreateRequests(role);
 
   useEffect(() => {
     const companyId = getCompanyId();
@@ -148,10 +155,12 @@ const Home = () => {
       try {
         const [statsRes, recentRes] = await Promise.all([
           api.get(`/request/stats/${companyId}`),
-          api.get(`/employee/requests/${myId}`),
+          companyWide
+            ? api.get(`/company/requests/${companyId}`).catch((e) => (e.response?.status === 404 ? { data: [] } : Promise.reject(e)))
+            : api.get(`/employee/requests/${myId}`),
         ]);
         setStats(statsRes.data || {});
-        setRecentRequests(recentRes.data || []);
+        setRecentRequests([...(recentRes.data || [])].sort((a, b) => new Date(b.date_created) - new Date(a.date_created)));
       } catch (e) { console.error(e); }
       finally { if (isInitial) setLoading(false); }
     };
@@ -166,6 +175,7 @@ const Home = () => {
           api.get(`/company/get_company/${companyId}`),
         ]);
         const approversDoc = companyRes.data?.approvers;
+        setEmployees(companyRes.data?.employees || []);
         const ctx = {
           role,
           myId,
@@ -174,9 +184,6 @@ const Home = () => {
           fundingAuthority: approversDoc?.funding_authority,
           verificationAuthority: approversDoc?.verification_authority,
         };
-        // Two distinct reasons a request can need attention: it's your turn
-        // to approve/reject, or someone raised a clarification question you
-        // need to answer before it can move again.
         const items = (companyRequestsRes.data || [])
           .map((r) => {
             if (needsMyAction(r, ctx)) return { ...r, _actionType: "approve" };
@@ -190,10 +197,6 @@ const Home = () => {
     };
     loadActionItems();
 
-    // Requests are a live, shared list — anyone's action can move a request
-    // out of (or into) "needs your action" for someone else. Refetch on any
-    // request-related event instead of only reflecting whatever was true
-    // when this page happened to load.
     const socket = getSocket();
     if (!socket) return;
     const onNotification = (payload) => {
@@ -206,197 +209,175 @@ const Home = () => {
     return () => socket.off("notification", onNotification);
   }, [role]);
 
-  const { total, approved, pending, totalAmount } = stats;
+  const { total = 0, approved = 0, pending = 0, rejected = 0, totalAmount = 0 } = stats;
+  const openDetails = (id) => navigate(`/employeedashboard/request-details/${id}`);
+  const goRequests = () => navigate("/employeedashboard/requests");
+
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  const nameById = Object.fromEntries(employees.map((e) => [String(e._id), e.name]));
+  const requesterName = (r) => (String(r.user_id) === getId() ? "You" : nameById[String(r.user_id)]);
+
+  const links = [
+    canCreate && { icon: Plus, title: "New request", desc: "Create a financial request", onClick: () => navigate("/employeedashboard/requests/new") },
+    { icon: FileText, title: "View requests", desc: "Track approvals and history", onClick: goRequests },
+    role === "admin"
+      ? { icon: Settings, title: "Manage workflows", desc: "Approvers, roles and departments", onClick: () => navigate("/employeedashboard/settings") }
+      : role === "requester"
+        ? { icon: Settings, title: "Account settings", desc: "Profile and password", onClick: () => navigate("/employeedashboard/settings") }
+        : { icon: Users, title: "View team", desc: "People and their roles", onClick: () => navigate("/employeedashboard/team") },
+    role === "admin" && { icon: Users, title: "View team", desc: "People and their roles", onClick: () => navigate("/employeedashboard/team") },
+  ].filter(Boolean);
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">{greeting}, <span className="capitalize">{user.split(" ")[0]}</span></h1>
-        <p className="text-slate-500 mt-1">Here's what's happening with your requests today.</p>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold text-brand-600 uppercase tracking-widest mb-1.5">{today}</p>
+          <h1 className="text-[28px] font-extrabold text-navy-900 tracking-tight leading-tight">
+            Welcome back, <span className="capitalize">{user.split(" ")[0]}</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Here's where {companyWide ? "your organization's" : "your"} financial requests stand today.</p>
+        </div>
+        <div className="flex gap-2">
+          <SecondaryButton icon={FileText} onClick={goRequests}>View requests</SecondaryButton>
+          {canCreate && <PrimaryButton icon={Plus} onClick={() => navigate("/employeedashboard/requests/new")}>New request</PrimaryButton>}
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <StatCard
-          title="Total Requests"
-          value={total}
-          colorClass="bg-brand-50 text-brand-600"
-          change="+12%"
-          up={true}
-          icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>}
-        />
-        <StatCard
-          title="Approved"
-          value={approved}
-          colorClass="bg-emerald-50 text-emerald-600"
-          change="+5%"
-          up={true}
-          icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-        />
-        <StatCard
-          title="Pending"
-          value={pending}
-          colorClass="bg-amber-50 text-amber-600"
-          change="-3%"
-          up={false}
-          icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-        />
-        <StatCard
-          title="Total Disbursed"
-          value={`$${totalAmount.toLocaleString()}`}
-          colorClass="bg-violet-50 text-violet-600"
-          change="+8%"
-          up={true}
-          icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-        />
-      </div>
+      <StatGrid
+        items={[
+          { label: "Total requests", value: total, sub: `${money(totalAmount)} disbursed`, icon: FileText, tone: "brand" },
+          { label: "Pending", value: pending, sub: `${pct(pending, total)} in the approval chain`, icon: Clock, tone: "amber" },
+          { label: "Approved", value: approved, sub: `${pct(approved, total)} approval rate`, icon: CircleCheck, tone: "emerald" },
+          { label: "Rejected", value: rejected, sub: `${pct(rejected, total)} of all requests`, icon: CircleX, tone: "red" },
+        ]}
+      />
 
-      {/* Needs Your Action */}
-      {role !== "requester" && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-slate-900 flex items-center gap-2">
-                Needs Your Action
-                {actionRequests.length > 0 && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{actionRequests.length}</span>
-                )}
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Requests currently waiting on your approval</p>
-            </div>
-            {actionRequests.length > 0 && (
-              <button onClick={() => navigate("/employeedashboard/requests")} className="text-sm font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors">
-                View all
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {!actionLoaded ? (
-            <div className="p-8 text-center">
-              <svg className="w-6 h-6 animate-spin text-brand-500 mx-auto" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            </div>
-          ) : actionRequests.length === 0 ? (
-            <div className="p-10 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <p className="font-semibold text-slate-700">You're all caught up</p>
-              <p className="text-sm text-slate-400 mt-0.5">Nothing needs your review right now.</p>
+      {/* Both columns stretch to the same height so the row's bottom edges line up */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-6">
+        {/* Recent requests */}
+        <Card className="min-w-0 overflow-hidden flex flex-col">
+          <CardHeader title="Recent requests" sub={companyWide ? "The latest requests across your organization" : "Your latest requisition submissions"} action={<ViewAll onClick={goRequests} />} />
+          {loading ? (
+            <div className="p-10 flex justify-center text-brand-500"><Spinner className="w-6 h-6" /></div>
+          ) : recentRequests.length === 0 ? (
+            <div className="p-12 text-center">
+              <span className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-7 h-7 text-slate-400" />
+              </span>
+              <p className="font-semibold text-navy-900 mb-1">No requests yet</p>
+              <p className="text-sm text-slate-400 mb-5">
+                {companyWide ? "Requests your team submits will appear here." : "Your recent requests will appear here once you create them."}
+              </p>
+              {canCreate && !companyWide && <PrimaryButton icon={Plus} onClick={() => navigate("/employeedashboard/requests/new")}>Create your first request</PrimaryButton>}
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {actionRequests.slice(0, 5).map((r) => {
-                const isResponse = r._actionType === "respond";
-                return (
-                  <div
-                    key={r.request_id}
-                    onClick={() => navigate(`/employeedashboard/request-details/${r.request_id}`)}
-                    className="flex items-center gap-4 px-6 py-3.5 hover:bg-slate-50 cursor-pointer transition-colors group"
-                  >
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isResponse ? "bg-orange-50" : "bg-amber-50"}`}>
-                      {isResponse ? (
-                        <svg className="w-4.5 h-4.5 text-orange-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4.5 h-4.5 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 capitalize truncate group-hover:text-brand-600 transition-colors">{r.title}</p>
-                      <p className="text-xs text-slate-400 capitalize">
-                        {isResponse ? "Clarification needs your response" : `${r.department} · ${r.category}`}
-                      </p>
-                    </div>
-                    <p className="font-bold text-slate-900 flex-shrink-0">${parseFloat(r.amount || 0).toLocaleString()}</p>
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/60 text-left text-xs font-semibold text-slate-500">
+                    <th className="px-5 sm:px-6 py-3">Request</th>
+                    <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-5 sm:px-6 py-3 text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentRequests.slice(0, 6).map((r, i) => (
+                    <tr key={r.request_id || i} onClick={() => openDetails(r.request_id)} className="hover:bg-slate-50 cursor-pointer transition-colors group">
+                      <td className="px-5 sm:px-6 py-3.5">
+                        <span className="block font-semibold text-navy-900 capitalize group-hover:text-brand-600 transition-colors truncate max-w-[18rem]">{r.title}</span>
+                        <span className="block text-xs text-slate-400 capitalize">
+                          <span className="font-mono">{shortId(r.request_id)}</span> · {r.department || "—"}
+                          {companyWide && requesterName(r) && <> · {requesterName(r)}</>}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 font-semibold text-navy-900 whitespace-nowrap tabular-nums">{money(r.amount)}</td>
+                      <td className="px-4 py-3.5"><StatusBadge status={r.status} /></td>
+                      <td className="px-5 sm:px-6 py-3.5 text-xs text-slate-500 whitespace-nowrap text-right">{getFormattedDate(r.date_created)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
+          {!loading && recentRequests.length > 0 && (
+            <div className="mt-auto px-5 sm:px-6 py-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Showing {Math.min(6, recentRequests.length)} of {recentRequests.length} requests</span>
+              <button onClick={goRequests} className="font-semibold text-brand-600 hover:text-brand-700">See all requests</button>
+            </div>
+          )}
+        </Card>
+
+        {/* Side column — the first card takes up any spare height */}
+        <div className="flex flex-col gap-6">
+          {role !== "requester" ? (
+            <Card className="overflow-hidden flex-1 flex flex-col">
+              <CardHeader
+                title="Needs your action"
+                sub="Waiting on your approval"
+                badge={actionRequests.length}
+                action={actionRequests.length > 0 && <ViewAll onClick={goRequests} />}
+              />
+              {!actionLoaded ? (
+                <div className="p-8 flex-1 flex items-center justify-center text-brand-500"><Spinner className="w-6 h-6" /></div>
+              ) : actionRequests.length === 0 ? (
+                <div className="p-8 text-center flex-1 flex flex-col items-center justify-center">
+                  <span className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-3">
+                    <CircleCheck className="w-6 h-6 text-emerald-500" />
+                  </span>
+                  <p className="font-semibold text-navy-900 text-sm">You're all caught up</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Nothing needs your review right now.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {actionRequests.slice(0, 5).map((r) => {
+                    const isResponse = r._actionType === "respond";
+                    const Icon = isResponse ? MessageCircleQuestion : CircleAlert;
+                    return (
+                      <button key={r.request_id} onClick={() => openDetails(r.request_id)} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-slate-50 transition-colors group">
+                        <span className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+                          <Icon className="w-4 h-4" />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-semibold text-navy-900 capitalize truncate group-hover:text-brand-600">{r.title}</span>
+                          <span className="block text-xs text-slate-400 capitalize truncate">
+                            {isResponse ? "Clarification needs your response" : `${r.department} · ${r.category}`}
+                          </span>
+                        </span>
+                        <span className="text-sm font-bold text-navy-900 flex-shrink-0 tabular-nums">{money(r.amount)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          ) : (
+            <Card className="p-5 flex-1 flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+                <Info className="w-4 h-4" />
+              </span>
+              <div>
+                <p className="font-bold text-navy-900 text-sm mb-1">Need assistance?</p>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Questions about a request? Ask on its clarification thread, or contact your finance admin.
+                </p>
+              </div>
+            </Card>
+          )}
+
+          <Card className="overflow-hidden">
+            <CardHeader title="Quick links" />
+            <div className="divide-y divide-slate-100">
+              {links.map((l) => <QuickLink key={l.title} {...l} />)}
+            </div>
+          </Card>
         </div>
-      )}
+      </div>
 
       {role === "admin" && <EmployeesPanel />}
-
-      {/* Recent Requests */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="font-bold text-slate-900">Recent Requests</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Your latest requisition submissions</p>
-          </div>
-          <button onClick={() => navigate("/employeedashboard/requests")} className="text-sm font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors">
-            View all
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="p-8 text-center">
-            <svg className="w-6 h-6 animate-spin text-brand-500 mx-auto" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          </div>
-        ) : recentRequests.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            </div>
-            <p className="font-semibold text-slate-700 mb-1">No requests yet</p>
-            <p className="text-sm text-slate-400">Your recent requests will appear here once you create them.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-                  <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                  <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Category</th>
-                  <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Title</th>
-                  <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="text-right px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentRequests.slice(0, 8).map((data, i) => (
-                  <tr
-                    key={data.request_id || i}
-                    onClick={() => navigate(`/employeedashboard/request-details/${data.request_id}`)}
-                    className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors group"
-                  >
-                    <td className="px-6 py-4 text-slate-400 text-xs">{i + 1}</td>
-                    <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">{getFormattedDate(data.date_created)}</td>
-                    <td className="px-4 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{data.category}</span>
-                    </td>
-                    <td className="px-4 py-4 font-medium text-slate-800 capitalize group-hover:text-brand-600 transition-colors">{data.title}</td>
-                    <td className="px-4 py-4">{statusBadge(data.status)}</td>
-                    <td className="px-6 py-4 text-right font-bold text-slate-900">${parseFloat(data.amount || 0).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

@@ -6,7 +6,18 @@ const config = {
   darkMode: "class",
   theme: {
     extend: {
+      // App palette — use only these families:
+      //   brand   primary actions, links, highlights
+      //   navy    dark surfaces (sidebar, auth panels) and headings
+      //   slate   neutrals: body text, borders, backgrounds
+      //   emerald success / approved   amber  pending / clarification
+      //   red     rejected / danger    sky    in review / info
       colors: {
+        navy: {
+          800: "#1f2566",
+          900: "#161b52",
+          950: "#0f1340",
+        },
         brand: {
           50:  "#eef2ff",
           100: "#e0e7ff",
@@ -37,6 +48,7 @@ const config = {
         sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         body: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         display: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        hand: ["Caveat", "cursive"],
       },
       boxShadow: {
         card: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06)",
@@ -44,9 +56,8 @@ const config = {
         modal: "0 20px 60px -10px rgb(0 0 0 / 0.25)",
       },
       backgroundImage: {
-        "hero-gradient": "linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%)",
-        "sidebar-gradient": "linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%)",
-        "card-gradient": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        // The one dark surface used by the sidebar, auth panels and dark cards
+        "navy-gradient": "linear-gradient(160deg, #161b52 0%, #1f2566 55%, #2e2c8f 100%)",
       },
       animation: {
         "fade-in": "fadeIn 0.5s ease-out",

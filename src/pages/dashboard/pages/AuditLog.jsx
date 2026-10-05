@@ -1,58 +1,61 @@
 import React, { useEffect, useState } from "react";
+import {
+  BadgeCheck, Building2, CalendarDays, CircleCheck, CircleX, ClipboardList, Filter, GitMerge, Lock,
+  MessageCircleQuestion, MessageSquare, PlusCircle, ShieldCheck, SlidersHorizontal, Trash2, User,
+  UserCheck, UserMinus, UserPlus, Wallet,
+} from "lucide-react";
 import api from "../../../utilis/api";
 import { getCompanyId } from "../../../utilis/storage";
-import { ClipboardDocumentListIcon, UserIcon, TagIcon, CheckCircleIcon, BuildingOfficeIcon } from "../../../components/icons";
+import { Card, DATE_RANGES, EmptyState, PageHeader, SecondaryButton, SelectField, Spinner, initials, shortRef, withinRange } from "../../../components/ui/PageKit";
 
-const ICONS = {
-  request: <ClipboardDocumentListIcon className="w-4 h-4 text-brand-600" />,
-  employee: <UserIcon className="w-4 h-4 text-violet-600" />,
-  department: <TagIcon className="w-4 h-4 text-amber-600" />,
-  approver: <CheckCircleIcon className="w-4 h-4 text-emerald-600" />,
-  company: <BuildingOfficeIcon className="w-4 h-4 text-slate-600" />,
+// Label, icon and colour for each audited action
+const ACTIONS = {
+  "request.created": { label: "New request created", icon: PlusCircle, tone: "bg-brand-50 text-brand-600" },
+  "request.approved": { label: "Request approved", icon: CircleCheck, tone: "bg-emerald-50 text-emerald-600" },
+  "request.rejected": { label: "Request rejected", icon: CircleX, tone: "bg-red-50 text-red-600" },
+  "request.clarification_requested": { label: "Clarification requested", icon: MessageCircleQuestion, tone: "bg-amber-50 text-amber-600" },
+  "request.clarification_responded": { label: "Clarification answered", icon: MessageSquare, tone: "bg-sky-50 text-sky-600" },
+  "request.closed": { label: "Request closed", icon: Lock, tone: "bg-slate-100 text-slate-600" },
+  "request.status_overridden": { label: "Status overridden", icon: SlidersHorizontal, tone: "bg-sky-50 text-sky-600" },
+  "employee.invited": { label: "Member invited", icon: UserPlus, tone: "bg-brand-50 text-brand-600" },
+  "employee.revoked": { label: "Rights revoked", icon: UserMinus, tone: "bg-red-50 text-red-600" },
+  "employee.restored": { label: "Rights restored", icon: UserCheck, tone: "bg-emerald-50 text-emerald-600" },
+  "employee.removed": { label: "Member removed", icon: Trash2, tone: "bg-red-50 text-red-600" },
+  "employee.role_assigned": { label: "Role assigned", icon: BadgeCheck, tone: "bg-sky-50 text-sky-600" },
+  "employee.role_unassigned": { label: "Role removed", icon: User, tone: "bg-slate-100 text-slate-600" },
+  "department.merged": { label: "Departments merged", icon: GitMerge, tone: "bg-amber-50 text-amber-600" },
+  "approver.funding_authority_assigned": { label: "Funding approver set", icon: Wallet, tone: "bg-emerald-50 text-emerald-600" },
+  "approver.verification_authority_assigned": { label: "Verification approver set", icon: ShieldCheck, tone: "bg-emerald-50 text-emerald-600" },
+  "company.budget_updated": { label: "Budget updated", icon: Building2, tone: "bg-navy-800/10 text-navy-800" },
 };
 
-const ACTION_LABELS = {
-  "request.created": "Request submitted",
-  "request.approved": "Request approved",
-  "request.rejected": "Request rejected",
-  "request.clarification_requested": "Clarification requested",
-  "request.clarification_responded": "Clarification responded",
-  "request.closed": "Request closed",
-  "request.status_overridden": "Status overridden",
-  "employee.invited": "Member invited",
-  "employee.revoked": "Rights revoked",
-  "employee.restored": "Rights restored",
-  "employee.removed": "Member removed",
-  "employee.role_assigned": "Role assigned",
-  "employee.role_unassigned": "Role removed",
-  "department.merged": "Departments merged",
-  "approver.funding_authority_assigned": "Funding approver set",
-  "approver.verification_authority_assigned": "Verification approver set",
-  "company.budget_updated": "Budget updated",
-};
-
-const FILTERS = [
-  { key: "all", label: "All activity" },
-  { key: "request", label: "Requests" },
-  { key: "employee", label: "Team" },
-  { key: "department", label: "Departments" },
-  { key: "approver", label: "Approvers" },
-  { key: "company", label: "Organization" },
+const TYPES = [
+  { value: "all", label: "All activities" },
+  { value: "request", label: "Requests" },
+  { value: "employee", label: "Team" },
+  { value: "department", label: "Departments" },
+  { value: "approver", label: "Approvers" },
+  { value: "company", label: "Organization" },
 ];
 
-const Spinner = () => (
-  <svg className="w-5 h-5 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-  </svg>
-);
+// "Today, 10:24 AM" / "Yesterday, 4:20 PM" / "Aug 8, 2026, 11:03 AM"
+const when = (iso) => {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(iso).setHours(0, 0, 0, 0)) / 86400000);
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Yesterday, ${time}`;
+  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}, ${time}`;
+};
 
 const AuditLog = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState(null);
-  const [filter, setFilter] = useState("all");
+  const [type, setType] = useState("all");
+  const [actor, setActor] = useState("all");
+  const [range, setRange] = useState("all");
   const [error, setError] = useState("");
 
   const load = async (cursor) => {
@@ -76,73 +79,77 @@ const AuditLog = () => {
     load(nextCursor);
   };
 
-  const visible = filter === "all" ? entries : entries.filter((e) => e.target_type === filter);
+  const actors = [...new Set(entries.map((e) => e.actor_name).filter(Boolean))].sort();
+  const visible = entries.filter((e) =>
+    (type === "all" || e.target_type === type) &&
+    (actor === "all" || e.actor_name === actor) &&
+    withinRange(e.createdAt, range)
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Activity Log</h1>
-        <p className="text-slate-500 text-sm mt-1">A record of who did what, across your organization</p>
+      <PageHeader eyebrow="Activity log" title="Recent Activity" desc="Track all actions, updates and changes across the financial requisition system." />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <SelectField label="Activity type" icon={Filter} value={type} onChange={setType} options={TYPES} />
+        <SelectField label="User" icon={User} value={actor} onChange={setActor} options={[{ value: "all", label: "All users" }, ...actors.map((a) => ({ value: a, label: a }))]} />
+        <SelectField label="Date range" icon={CalendarDays} value={range} onChange={setRange} options={DATE_RANGES} />
       </div>
 
-      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit overflow-x-auto">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-              filter === f.key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {error && <div className="rounded-xl bg-red-50 ring-1 ring-red-200 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{error}</div>
-      )}
-
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
+      <Card>
         {loading ? (
-          <div className="p-12 flex justify-center"><Spinner /></div>
+          <div className="p-12 flex justify-center"><Spinner className="w-6 h-6" /></div>
         ) : visible.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-              <ClipboardDocumentListIcon className="w-6 h-6 text-slate-400" />
-            </div>
-            <p className="font-semibold text-slate-700 mb-1">No activity yet</p>
-            <p className="text-sm text-slate-400">Actions taken across your organization will show up here.</p>
-          </div>
+          <EmptyState
+            icon={ClipboardList}
+            title={entries.length ? "No activity matches these filters" : "No activity yet"}
+            desc={entries.length ? "Try a different type, user or date range." : "Actions taken across your organization will show up here."}
+          />
         ) : (
-          <div className="divide-y divide-slate-100">
-            {visible.map((e) => (
-              <div key={e._id} className="flex gap-3 px-6 py-4">
-                <span className="mt-0.5 flex-shrink-0">{ICONS[e.target_type] || <span className="inline-block w-4 h-4 text-center text-slate-400">•</span>}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                      {ACTION_LABELS[e.action] || e.action}
-                    </span>
+          <ol className="px-4 sm:px-6 py-5">
+            {visible.map((e, i) => {
+              const a = ACTIONS[e.action] || { label: e.action, icon: ClipboardList, tone: "bg-slate-100 text-slate-500" };
+              return (
+                <li key={e._id} className="relative flex gap-4 pb-6 last:pb-0">
+                  {i < visible.length - 1 && <span className="absolute left-[17px] top-10 bottom-0 w-px bg-slate-200" aria-hidden="true" />}
+                  <span className={`relative z-10 w-9 h-9 rounded-full ring-4 ring-white flex items-center justify-center flex-shrink-0 ${a.tone}`}>
+                    <a.icon className="w-4 h-4" />
+                  </span>
+                  <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-start gap-2 md:gap-6">
+                    <div className="flex-1 min-w-0">
+                      <p className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-navy-900">{a.label}</span>
+                        {e.target_type === "request" && e.target_id && (
+                          <span className="font-mono text-[11px] text-brand-700 bg-brand-50 rounded px-1.5 py-0.5">{shortRef(e.target_id)}</span>
+                        )}
+                        {!e.actor_name && <span className="text-[11px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5">System</span>}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-0.5">{e.message}</p>
+                    </div>
+                    <div className="flex items-center gap-4 md:w-80 md:justify-end flex-shrink-0">
+                      <span className="text-xs text-slate-400 whitespace-nowrap">{when(e.createdAt)}</span>
+                      <span className="flex items-center gap-2 min-w-0 md:w-32">
+                        <span className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                          {initials(e.actor_name) || "SY"}
+                        </span>
+                        <span className="text-xs text-slate-600 truncate capitalize">{e.actor_name || "System"}</span>
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-sm text-slate-700 mt-0.5">{e.message}</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {e.actor_name} · {new Date(e.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+                </li>
+              );
+            })}
+          </ol>
         )}
 
         {!loading && nextCursor && (
           <div className="p-4 border-t border-slate-100 flex justify-center">
-            <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm disabled:opacity-60">
-              {loadingMore ? "Loading…" : "Load more"}
-            </button>
+            <SecondaryButton onClick={loadMore} disabled={loadingMore}>{loadingMore ? "Loading…" : "Load more"}</SecondaryButton>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

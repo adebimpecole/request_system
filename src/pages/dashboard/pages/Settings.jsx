@@ -1,54 +1,74 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
+import {
+  BadgeCheck, Briefcase, Building2, CircleCheck, DollarSign, GitMerge, KeyRound, Lock, Mail,
+  Plus, ShieldCheck, Trash2, User, UserCog, Users, Wallet, X,
+} from "lucide-react";
 import api from "../../../utilis/api";
 import { getId, getToken, getRole, getEmail, getDisplayName, getUser, getCompanyId } from "../../../utilis/storage";
 import { getApproverDesignation } from "../../../utilis/functions";
 import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
+import { Card, PageHeader, PrimaryButton, SecondaryButton, Spinner, initials as toInitials, money } from "../../../components/ui/PageKit";
+import { PasswordInput, TextInput } from "../../../components/auth/Fields";
 
-const avatarColors = "from-brand-400 to-brand-700";
+const ROLE_LABELS = { admin: "Admin", approver: "Approver", department_head: "Department Head", requester: "Requester" };
 
-const SectionHeader = ({ icon, label, color = "bg-brand-50 text-brand-600" }) => (
-  <h2 className="font-bold text-slate-900 mb-5 flex items-center gap-2">
-    <span className={`w-7 h-7 rounded-lg ${color} flex items-center justify-center`}>{icon}</span>
-    {label}
-  </h2>
+// Card with an icon header, used for every settings section
+const Section = ({ icon: Icon, tone = "bg-brand-50 text-brand-600", title, desc, action, children, className = "" }) => (
+  <Card className={`p-5 sm:p-6 ${className}`}>
+    <div className="flex items-start gap-3 mb-5">
+      <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${tone}`}><Icon className="w-4 h-4" /></span>
+      <div className="flex-1 min-w-0">
+        <h2 className="font-bold text-navy-900 text-[15px]">{title}</h2>
+        {desc && <p className="text-xs text-slate-500 mt-0.5">{desc}</p>}
+      </div>
+      {action}
+    </div>
+    {children}
+  </Card>
 );
 
-const SaveBanner = ({ show }) => show ? (
-  <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-    Saved successfully!
+// Form row with a leading icon tile, as in the Settings mockup
+const IconField = ({ icon: Icon, label, htmlFor, children }) => (
+  <div className="flex items-start gap-3">
+    <span className="w-9 h-9 mt-6 rounded-lg bg-slate-50 ring-1 ring-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0">
+      <Icon className="w-4 h-4" />
+    </span>
+    <div className="flex-1 min-w-0">
+      <label htmlFor={htmlFor} className="block text-xs font-semibold text-navy-900 mb-1.5">{label}</label>
+      {children}
+    </div>
   </div>
-) : <div />;
-
-const Spinner = () => (
-  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-  </svg>
 );
+
+const Saved = ({ show, text = "Saved" }) =>
+  show ? <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600"><CircleCheck className="w-4 h-4" />{text}</span> : null;
+
+const Busy = ({ label }) => <><Spinner className="w-4 h-4 text-white" />{label}</>;
 
 // Profile Tab
-const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) => {
-  const [saved, setSaved] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const emptyForm = {
-    firstname: "", lastname: "", department: "", email: "",
-    oldpassword: "", newpassword: "", companyname: "",
-  };
-  const [formData, setFormData] = useState(emptyForm);
-  const [initialFormData, setInitialFormData] = useState(emptyForm);
-  const { firstname, lastname, department, email, oldpassword, newpassword, companyname } = formData;
-  const onChange = (e) => setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
+const ProfileTab = ({ userid, token, role, storedUser, initials, companyData, goTo }) => {
+  const dispatch = useDispatch();
+  const isAdmin = role === "admin";
+
+  const emptyProfile = { firstname: "", lastname: "", department: "", email: "", companyname: "" };
+  const [profile, setProfile] = useState(emptyProfile);
+  const [initialProfile, setInitialProfile] = useState(emptyProfile);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  const [passwords, setPasswords] = useState({ oldpassword: "", newpassword: "", confirm: "" });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
+  const onProfile = (e) => setProfile((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const onPassword = (e) => { setPasswords((p) => ({ ...p, [e.target.name]: e.target.value })); setPasswordError(""); };
 
   useEffect(() => {
-    if (role === "admin") {
-      const user = getUser();
-      const next = { ...emptyForm, companyname: user.company_name || "" };
-      setFormData(next);
-      setInitialFormData(next);
+    if (isAdmin) {
+      const next = { ...emptyProfile, companyname: getUser().company_name || "" };
+      setProfile(next);
+      setInitialProfile(next);
       return;
     }
     const load = async () => {
@@ -57,157 +77,172 @@ const ProfileTab = ({ userid, token, role, storedUser, initials, companyData }) 
           headers: { Authorization: `Bearer ${token}` },
         });
         const next = {
-          ...emptyForm,
+          ...emptyProfile,
           firstname: userRes.data.first_name || userRes.data.firstname || "",
           lastname: userRes.data.last_name || userRes.data.lastname || "",
           email: userRes.data.email || "",
           department: userRes.data.department || "",
         };
-        setFormData(next);
-        setInitialFormData(next);
+        setProfile(next);
+        setInitialProfile(next);
       } catch (e) { console.error(e); }
     };
     load();
   }, []);
 
-  const isDirty = Object.keys(formData).some((key) => formData[key] !== initialFormData[key]);
+  const profileDirty = Object.keys(profile).some((k) => profile[k] !== initialProfile[k]);
 
-  const onSubmit = async (e) => {
+  // Both forms post to the same endpoint; empty fields are left out so they don't overwrite anything
+  const post = (fields) =>
+    api.post(`/employee/${userid}`, Object.fromEntries(Object.entries(fields).filter(([, v]) => String(v).trim() !== "")), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+  const saveProfile = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    const filtered = Object.fromEntries(Object.entries(formData).filter(([, v]) => v.trim() !== ""));
+    setProfileSaving(true);
     try {
-      await api.post(`/employee/${userid}`, filtered, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setInitialFormData(formData);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+      await post(isAdmin ? { companyname: profile.companyname } : { firstname: profile.firstname, lastname: profile.lastname, email: profile.email, department: profile.department });
+      setInitialProfile(profile);
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
+    } catch (err) {
+      dispatch(pushAlert({ type: "error", message: err.response?.data?.message || "Could not save your profile." }));
+    } finally { setProfileSaving(false); }
+  };
+
+  const savePassword = async (e) => {
+    e.preventDefault();
+    if (!isAdmin && !passwords.oldpassword) { setPasswordError("Enter your current password."); return; }
+    if (passwords.newpassword.length < 8) { setPasswordError("New password must be at least 8 characters."); return; }
+    if (passwords.newpassword !== passwords.confirm) { setPasswordError("New passwords do not match."); return; }
+    setPasswordSaving(true);
+    try {
+      await post({ oldpassword: passwords.oldpassword, newpassword: passwords.newpassword });
+      setPasswords({ oldpassword: "", newpassword: "", confirm: "" });
+      dispatch(pushAlert({ type: "success", message: "Password updated." }));
+    } catch (err) {
+      setPasswordError(err.response?.data?.message || "Could not update your password.");
+    } finally { setPasswordSaving(false); }
   };
 
   const departmentList = companyData?.departments || [];
-  const companyName = companyData?.company?.company_name || "";
+  const companyName = companyData?.company?.company_name || getUser().company_name || "";
   const approverLabel = getApproverDesignation(getEmail(), companyData?.approvers);
+  const canSeeOrg = role === "admin" || role === "approver";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Profile card */}
-      <div className="lg:col-span-1">
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 text-center">
-          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${avatarColors} flex items-center justify-center text-white font-extrabold text-2xl mx-auto mb-4 shadow-lg`}>
-            {initials}
-          </div>
-          <h3 className="font-bold text-slate-900 text-lg capitalize">{storedUser}</h3>
-          <p className="text-sm text-slate-500 mt-0.5">{getEmail()}</p>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 ring-1 ring-brand-200 capitalize">{role}</span>
-            {approverLabel && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 ring-1 ring-violet-200">{approverLabel}</span>
-            )}
-          </div>
-          {companyName && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-xs text-slate-500">Organization</p>
-              <p className="text-sm font-semibold text-slate-800 capitalize mt-1">{companyName}</p>
-            </div>
-          )}
-          <div className="mt-4 pt-4 border-t border-slate-100 text-left space-y-2">
-            {[
-              { label: "Account type", value: role },
-              { label: "Department", value: department || "—" },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">{item.label}</span>
-                <span className="text-xs font-semibold text-slate-700 capitalize">{item.value}</span>
+    <div className="space-y-6">
+      {/* Profile header */}
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-5">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            <span className="w-16 h-16 rounded-2xl bg-brand-600 text-white text-xl font-extrabold flex items-center justify-center flex-shrink-0">
+              {initials || "?"}
+            </span>
+            <div className="min-w-0">
+              <p className="text-lg font-bold text-navy-900 capitalize truncate">{storedUser}</p>
+              <p className="flex items-center gap-1.5 text-xs text-slate-500 truncate"><Mail className="w-3.5 h-3.5 flex-shrink-0" />{getEmail()}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700">
+                  <BadgeCheck className="w-3 h-3" />{ROLE_LABELS[role] || role}
+                </span>
+                {approverLabel && <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700">{approverLabel}</span>}
               </div>
-            ))}
+            </div>
           </div>
+          {canSeeOrg && (
+            <SecondaryButton icon={Building2} onClick={() => goTo("organization")} className="self-start md:self-center">
+              {isAdmin ? "Edit organization" : "View organization"}
+            </SecondaryButton>
+          )}
         </div>
-      </div>
+        <dl className="mt-5 pt-5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            ["Organization", companyName || "—"],
+            ["Department", profile.department || (isAdmin ? "All departments" : "—")],
+            ["Team members", String((companyData?.employees || []).length)],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <dt className="text-xs text-slate-400">{k}</dt>
+              <dd className="text-sm font-semibold text-navy-900 capitalize">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
 
-      {/* Form */}
-      <div className="lg:col-span-2">
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-            <SectionHeader label="Personal Information" icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
-            } />
+      <div className="space-y-6">
+        {/* Personal information */}
+        <Section icon={User} title={isAdmin ? "Organization profile" : "Personal information"} desc={isAdmin ? "Update your organization's name." : "Update your personal details and contact information."}>
+          <form onSubmit={saveProfile} className="space-y-4">
+            {isAdmin ? (
+              <IconField icon={Building2} label="Company name" htmlFor="companyname">
+                <TextInput id="companyname" name="companyname" value={profile.companyname} onChange={onProfile} />
+              </IconField>
+            ) : (
+              <>
+                <IconField icon={User} label="Full name" htmlFor="firstname">
+                  <div className="grid grid-cols-2 gap-3">
+                    <TextInput id="firstname" name="firstname" placeholder="First name" value={profile.firstname} onChange={onProfile} />
+                    <TextInput aria-label="Last name" name="lastname" placeholder="Last name" value={profile.lastname} onChange={onProfile} />
+                  </div>
+                </IconField>
+                <IconField icon={Mail} label="Email address" htmlFor="email">
+                  <TextInput id="email" name="email" type="email" value={profile.email} onChange={onProfile} />
+                </IconField>
+                <IconField icon={Briefcase} label="Department" htmlFor="department">
+                  {departmentList.length > 0 ? (
+                    <TextInput as="select" id="department" name="department" value={profile.department} onChange={onProfile} className="capitalize">
+                      <option value="">Select department</option>
+                      {departmentList.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                    </TextInput>
+                  ) : (
+                    <TextInput id="department" disabled placeholder="Loading departments..." />
+                  )}
+                </IconField>
+              </>
+            )}
+            {!isAdmin && (
+              <IconField icon={Building2} label="Organization" htmlFor="org">
+                <TextInput id="org" value={companyName || "—"} readOnly disabled className="capitalize" />
+              </IconField>
+            )}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <Saved show={profileSaved} />
+              <PrimaryButton type="submit" disabled={profileSaving || !profileDirty}>
+                {profileSaving ? <Busy label="Saving..." /> : "Save changes"}
+              </PrimaryButton>
+            </div>
+          </form>
+        </Section>
+
+        {/* Password */}
+        <Section icon={Lock} tone="bg-amber-50 text-amber-600" title="Change password" desc="Update your password for better security.">
+          <form onSubmit={savePassword} className="space-y-4">
+            {!isAdmin && (
+              <div>
+                <label htmlFor="oldpassword" className="block text-xs font-semibold text-navy-900 mb-1.5">Current password</label>
+                <PasswordInput id="oldpassword" name="oldpassword" autoComplete="current-password" placeholder="Enter current password" value={passwords.oldpassword} onChange={onPassword} />
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {role !== "admin" && (
-                <>
-                  <div>
-                    <label className="label">First Name</label>
-                    <input name="firstname" type="text" className="input-field" placeholder="Jane" value={firstname} onChange={onChange} />
-                  </div>
-                  <div>
-                    <label className="label">Last Name</label>
-                    <input name="lastname" type="text" className="input-field" placeholder="Doe" value={lastname} onChange={onChange} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="label">Email Address</label>
-                    <input name="email" type="email" className="input-field" value={email} onChange={onChange} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="label">Department</label>
-                    {departmentList.length > 0 ? (
-                      <select name="department" className="input-field" value={department} onChange={onChange}>
-                        <option value="">Select department</option>
-                        {departmentList.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
-                      </select>
-                    ) : (
-                      <input className="input-field bg-slate-50 cursor-not-allowed text-slate-400" placeholder="Loading departments..." disabled />
-                    )}
-                  </div>
-                </>
-              )}
-              {role === "admin" && (
-                <div className="sm:col-span-2">
-                  <label className="label">Company Name</label>
-                  <input name="companyname" type="text" className="input-field" value={companyname} onChange={onChange} />
-                </div>
-              )}
-              <div className="sm:col-span-2">
-                <label className="label">Organization</label>
-                <input type="text" className="input-field bg-slate-50 cursor-not-allowed text-slate-400 capitalize" value={companyName || "Loading..."} readOnly />
+              <div>
+                <label htmlFor="newpassword" className="block text-xs font-semibold text-navy-900 mb-1.5">New password</label>
+                <PasswordInput id="newpassword" name="newpassword" autoComplete="new-password" placeholder="At least 8 characters" value={passwords.newpassword} onChange={onPassword} />
+              </div>
+              <div>
+                <label htmlFor="confirm" className="block text-xs font-semibold text-navy-900 mb-1.5">Confirm new password</label>
+                <PasswordInput id="confirm" name="confirm" autoComplete="new-password" placeholder="Repeat new password" value={passwords.confirm} onChange={onPassword} />
               </div>
             </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-            <SectionHeader label="Change Password" color="bg-amber-50 text-amber-600" icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-            } />
-            <div className="grid grid-cols-2 gap-4">
-              {role !== "admin" && (
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="label">Current Password</label>
-                  <input name="oldpassword" type="password" className="input-field" placeholder="Current password" value={oldpassword} onChange={onChange} />
-                </div>
-              )}
-              <div className={role === "admin" ? "col-span-2" : "col-span-2 sm:col-span-1"}>
-                <label className="label">New Password</label>
-                <input name="newpassword" type="password" className="input-field" placeholder="New password" value={newpassword} onChange={onChange} />
-              </div>
+            {passwordError && <p className="text-xs text-red-600">{passwordError}</p>}
+            <div className="flex justify-end">
+              <PrimaryButton type="submit" disabled={passwordSaving || !passwords.newpassword}>
+                {passwordSaving ? <Busy label="Updating..." /> : "Update password"}
+              </PrimaryButton>
             </div>
-          </div>
-
-          {(isDirty || saved) && (
-            <div className="flex items-center justify-between">
-              <SaveBanner show={saved} />
-              <div className="ml-auto">
-                <button type="submit" disabled={loading || !isDirty} className="btn-primary disabled:opacity-60">
-                  {loading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Changes"}
-                </button>
-              </div>
-            </div>
-          )}
-        </form>
+          </form>
+        </Section>
       </div>
     </div>
   );
@@ -260,7 +295,7 @@ const OrganizationTab = ({ companyId, token, role, myDepartment, companyData, re
     } finally { setMergeLoading(false); }
   };
 
-  // Group members by department
+  // Group members by department, yours first
   const departmentGroups = Object.entries(
     members.reduce((acc, m) => {
       const dept = m.department || "Unassigned";
@@ -282,8 +317,9 @@ const OrganizationTab = ({ companyId, token, role, myDepartment, companyData, re
       setBudgetSaved(true);
       setTimeout(() => setBudgetSaved(false), 3000);
       refresh();
-    } catch (e) { console.error(e); }
-    finally { setBudgetLoading(false); }
+    } catch (e) {
+      dispatch(pushAlert({ type: "error", message: e.response?.data?.message || "Could not update the budget." }));
+    } finally { setBudgetLoading(false); }
   };
 
   const addDepartment = () => {
@@ -310,8 +346,9 @@ const OrganizationTab = ({ companyId, token, role, myDepartment, companyData, re
       setDeptSaved(true);
       setTimeout(() => setDeptSaved(false), 3000);
       refresh();
-    } catch (e) { console.error(e); }
-    finally { setDeptLoading(false); }
+    } catch (e) {
+      dispatch(pushAlert({ type: "error", message: e.response?.data?.message || "Could not save departments." }));
+    } finally { setDeptLoading(false); }
   };
 
   const deleteMember = async (memberId) => {
@@ -321,214 +358,168 @@ const OrganizationTab = ({ companyId, token, role, myDepartment, companyData, re
         headers: { Authorization: `Bearer ${token}` },
       });
       refresh();
-    } catch (e) { console.error(e); }
-    finally { setDeletingId(null); }
+    } catch (e) {
+      dispatch(pushAlert({ type: "error", message: e.response?.data?.message || "Could not remove member." }));
+    } finally { setDeletingId(null); }
   };
 
   return (
     <div className="space-y-6">
       {isAdmin && (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-        <SectionHeader label="Budget" color="bg-emerald-50 text-emerald-600" icon={
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        } />
-        <p className="text-sm text-slate-500 mb-4">Set the total approved budget for your organization.</p>
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <label className="label">Total Budget ($)</label>
-            <input
-              type="number" min="0" className="input-field"
-              placeholder="e.g. 50000"
-              value={budget} onChange={(e) => setBudget(e.target.value)}
-            />
-          </div>
-          {(budgetDirty || budgetLoading) && (
-            <button onClick={saveBudget} disabled={budgetLoading} className="btn-primary disabled:opacity-60 whitespace-nowrap">
-              {budgetLoading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Budget"}
-            </button>
-          )}
-        </div>
-        {budgetSaved && <p className="text-emerald-600 text-sm mt-2 flex items-center gap-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Budget updated.</p>}
-      </div>
-      )}
-
-      {/* Departments */}
-      {isAdmin && (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-        <SectionHeader label="Departments" color="bg-violet-50 text-violet-600" icon={
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-          </svg>
-        } />
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text" className="input-field flex-1" placeholder="New department name"
-            value={deptInput}
-            onChange={(e) => { setDeptInput(e.target.value); setDeptError(""); }}
-            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addDepartment())}
-          />
-          <button type="button" onClick={addDepartment} className="btn-primary whitespace-nowrap">Add</button>
-        </div>
-        {deptError && <p className="text-red-500 text-xs mb-3">{deptError}</p>}
-        {departments.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-xl">No departments yet.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {departments.map((d) => {
-              const memberCount = members.filter((m) => m.department === d).length;
-              return (
-                <span key={d} className="inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 text-sm font-medium px-3 py-1.5 rounded-full ring-1 ring-brand-200">
-                  {d}
-                  {memberCount > 0 ? (
-                    <span title={`${memberCount} member${memberCount === 1 ? "" : "s"} — merge into another department below to remove`} className="text-brand-300 cursor-not-allowed">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                      </svg>
-                    </span>
-                  ) : (
-                    <button type="button" onClick={() => removeDepartment(d)} className="text-brand-400 hover:text-red-500 transition-colors">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </span>
-              );
-            })}
-          </div>
-        )}
-        {(deptDirty || deptSaved) && (
-          <div className="flex items-center justify-between">
-            <SaveBanner show={deptSaved} />
-            <button onClick={saveDepartments} disabled={deptLoading || !deptDirty || departments.length === 0} className="btn-primary disabled:opacity-60 ml-auto">
-              {deptLoading ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Departments"}
-            </button>
-          </div>
-        )}
-
-        {initialDepartments.length >= 2 && (
-          <div className="mt-5 pt-5 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Merge departments</p>
-            <p className="text-xs text-slate-400 mb-3">Move everyone and every request from one department into another, then remove the old one.</p>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
-              <div className="flex-1">
-                <label className="label">Merge</label>
-                <select
-                  className="input-field capitalize"
-                  value={mergeFrom}
-                  onChange={(e) => { setMergeFrom(e.target.value); setMergeConfirming(false); }}
-                >
-                  <option value="">Select department</option>
-                  {initialDepartments.filter((d) => d !== mergeInto).map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+        <>
+          {/* Budget */}
+          <Section icon={DollarSign} tone="bg-emerald-50 text-emerald-600" title="Budget" desc="The total approved budget for your organization.">
+            <label htmlFor="budget" className="block text-xs font-semibold text-navy-900 mb-1.5">Total budget ($)</label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex-1 max-w-sm">
+                <TextInput id="budget" type="number" min="0" placeholder="e.g. 50000" value={budget} onChange={(e) => setBudget(e.target.value)} />
               </div>
-              <div className="flex-1">
-                <label className="label">Into</label>
-                <select
-                  className="input-field capitalize"
-                  value={mergeInto}
-                  onChange={(e) => { setMergeInto(e.target.value); setMergeConfirming(false); }}
-                >
-                  <option value="">Select department</option>
-                  {initialDepartments.filter((d) => d !== mergeFrom).map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMergeConfirming(true)}
-                disabled={!mergeFrom || !mergeInto}
-                className="btn-secondary whitespace-nowrap disabled:opacity-50"
-              >
-                Merge
-              </button>
+              <PrimaryButton onClick={saveBudget} disabled={budgetLoading || !budgetDirty} className="h-11">
+                {budgetLoading ? <Busy label="Saving..." /> : "Save budget"}
+              </PrimaryButton>
+              <Saved show={budgetSaved} text="Budget updated" />
             </div>
+            {initialBudget !== "" && !budgetDirty && <p className="text-xs text-slate-400 mt-1.5">Currently {money(initialBudget)}</p>}
+          </Section>
 
-            {mergeConfirming && (
-              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-2">
-                <p>
-                  This moves <strong>{membersInFrom}</strong> member{membersInFrom === 1 ? "" : "s"} and every request currently in <span className="capitalize font-semibold">{mergeFrom}</span> into <span className="capitalize font-semibold">{mergeInto}</span>, then removes <span className="capitalize font-semibold">{mergeFrom}</span> as a department.
-                </p>
-                {fromHead && intoHead && (
-                  <p>
-                    <span className="capitalize font-semibold">{fromHead.name}</span> is currently department head of {mergeFrom} and will lose that role — <span className="capitalize font-semibold">{intoHead.name}</span> remains department head of {mergeInto}.
-                  </p>
-                )}
-                <div className="flex items-center gap-2 pt-1">
-                  <button type="button" onClick={doMerge} disabled={mergeLoading} className="btn-primary text-sm py-2 disabled:opacity-60">
-                    {mergeLoading ? "Merging..." : "Confirm merge"}
-                  </button>
-                  <button type="button" onClick={() => setMergeConfirming(false)} className="btn-secondary text-sm py-2">Cancel</button>
-                </div>
+          {/* Departments */}
+          <Section icon={Building2} tone="bg-sky-50 text-sky-600" title="Departments" desc="Departments with members can't be removed — merge them into another instead.">
+            <div className="flex gap-2 mb-3">
+              <div className="flex-1">
+                <TextInput
+                  aria-label="New department name"
+                  placeholder="New department name"
+                  value={deptInput}
+                  onChange={(e) => { setDeptInput(e.target.value); setDeptError(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addDepartment())}
+                />
+              </div>
+              <SecondaryButton icon={Plus} type="button" onClick={addDepartment} className="h-11">Add</SecondaryButton>
+            </div>
+            {deptError && <p className="text-red-500 text-xs mb-3">{deptError}</p>}
+            {departments.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6 rounded-xl border-2 border-dashed border-slate-200">No departments yet.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-100">
+                {departments.map((d) => {
+                  const memberCount = members.filter((m) => m.department === d).length;
+                  return (
+                    <li key={d} className="flex items-center gap-3 px-4 py-2.5">
+                      <span className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0"><Building2 className="w-4 h-4" /></span>
+                      <span className="flex-1 text-sm font-semibold text-navy-900 capitalize truncate">{d}</span>
+                      <span className="text-xs text-slate-400">{memberCount} member{memberCount === 1 ? "" : "s"}</span>
+                      {memberCount > 0 ? (
+                        <span title="Merge into another department below to remove" className="p-1.5 text-slate-300"><Lock className="w-4 h-4" /></span>
+                      ) : (
+                        <button type="button" onClick={() => removeDepartment(d)} aria-label={`Remove ${d}`} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50">
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {(deptDirty || deptSaved) && (
+              <div className="flex items-center justify-end gap-3 mt-4">
+                <Saved show={deptSaved} />
+                <PrimaryButton onClick={saveDepartments} disabled={deptLoading || !deptDirty || departments.length === 0}>
+                  {deptLoading ? <Busy label="Saving..." /> : "Save departments"}
+                </PrimaryButton>
               </div>
             )}
-          </div>
-        )}
-      </div>
+
+            {initialDepartments.length >= 2 && (
+              <div className="mt-6 pt-5 border-t border-slate-100">
+                <p className="flex items-center gap-2 text-sm font-semibold text-navy-900 mb-1"><GitMerge className="w-4 h-4 text-slate-400" />Merge departments</p>
+                <p className="text-xs text-slate-500 mb-3">Move everyone and every request from one department into another, then remove the old one.</p>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-navy-900 mb-1.5">Merge</label>
+                    <TextInput as="select" aria-label="Merge from" className="capitalize" value={mergeFrom} onChange={(e) => { setMergeFrom(e.target.value); setMergeConfirming(false); }}>
+                      <option value="">Select department</option>
+                      {initialDepartments.filter((d) => d !== mergeInto).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </TextInput>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-semibold text-navy-900 mb-1.5">Into</label>
+                    <TextInput as="select" aria-label="Merge into" className="capitalize" value={mergeInto} onChange={(e) => { setMergeInto(e.target.value); setMergeConfirming(false); }}>
+                      <option value="">Select department</option>
+                      {initialDepartments.filter((d) => d !== mergeFrom).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </TextInput>
+                  </div>
+                  <SecondaryButton type="button" onClick={() => setMergeConfirming(true)} disabled={!mergeFrom || !mergeInto} className="h-11">Merge</SecondaryButton>
+                </div>
+
+                {mergeConfirming && (
+                  <div className="mt-3 rounded-xl bg-amber-50 ring-1 ring-amber-200 p-4 text-sm text-amber-800 space-y-2">
+                    <p>
+                      This moves <strong>{membersInFrom}</strong> member{membersInFrom === 1 ? "" : "s"} and every request currently in <span className="capitalize font-semibold">{mergeFrom}</span> into <span className="capitalize font-semibold">{mergeInto}</span>, then removes <span className="capitalize font-semibold">{mergeFrom}</span> as a department.
+                    </p>
+                    {fromHead && intoHead && (
+                      <p>
+                        <span className="capitalize font-semibold">{fromHead.name}</span> is currently department head of {mergeFrom} and will lose that role — <span className="capitalize font-semibold">{intoHead.name}</span> remains department head of {mergeInto}.
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 pt-1">
+                      <PrimaryButton type="button" onClick={doMerge} disabled={mergeLoading} className="h-9">{mergeLoading ? "Merging..." : "Confirm merge"}</PrimaryButton>
+                      <SecondaryButton type="button" onClick={() => setMergeConfirming(false)} className="h-9">Cancel</SecondaryButton>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </Section>
+        </>
       )}
 
       {/* Members */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-        <SectionHeader label="Team Members" color="bg-sky-50 text-sky-600" icon={
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-          </svg>
-        } />
+      <Section icon={Users} tone="bg-sky-50 text-sky-600" title="Team members" desc={`${members.length} member${members.length === 1 ? "" : "s"}, grouped by department.`}>
         {members.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">No team members yet.</p>
+          <p className="text-sm text-slate-400 text-center py-6 rounded-xl border-2 border-dashed border-slate-200">No team members yet.</p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {departmentGroups.map(([deptName, deptMembers]) => (
               <div key={deptName}>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">{deptName}</h3>
-                  {deptName === myDepartment && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-600">Your department</span>
-                  )}
+                  {deptName === myDepartment && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-600">Your department</span>}
                 </div>
-                <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                  {deptMembers.map((m) => {
-                    const ini = (m.name || m.email).split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-                    return (
-                      <div key={m._id} className="flex items-center gap-3 py-3 px-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                          {ini}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 capitalize truncate">{m.name}</p>
-                          <p className="text-xs text-slate-500 truncate">{m.email}</p>
-                        </div>
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 capitalize flex-shrink-0">{m.role}</span>
-                        {isAdmin && (
-                          <button
-                            onClick={() => deleteMember(m._id)}
-                            disabled={deletingId === m._id}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-40"
-                            title="Remove member"
-                          >
-                            {deletingId === m._id ? <Spinner /> : (
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-100">
+                  {deptMembers.map((m) => (
+                    <li key={m._id} className="flex items-center gap-3 py-2.5 px-3">
+                      <span className="w-9 h-9 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xs flex-shrink-0">{toInitials(m.name || m.email)}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-navy-900 capitalize truncate">{m.name}</span>
+                        <span className="block text-xs text-slate-500 truncate">{m.email}</span>
+                      </span>
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">{ROLE_LABELS[m.role] || m.role}</span>
+                      {isAdmin && (
+                        <button
+                          onClick={() => deleteMember(m._id)}
+                          disabled={deletingId === m._id}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                          title="Remove member"
+                          aria-label={`Remove ${m.name}`}
+                        >
+                          {deletingId === m._id ? <Spinner className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Section>
     </div>
   );
 };
 
-// Approvers Tab 
+// Approvers Tab
 const ApproversTab = ({ companyId, token, companyData, refresh }) => {
+  const dispatch = useDispatch();
   const employees = companyData?.employees || [];
   const approversData = companyData?.approvers || { approvers: [], funding_authority: null, verification_authority: null };
   const approverEmails = (approversData.approvers || []).map((a) => a.email);
@@ -558,8 +549,9 @@ const ApproversTab = ({ companyId, token, companyData, refresh }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       refresh();
-    } catch (e) { console.error(e); }
-    finally { setTogglingId(null); }
+    } catch (e) {
+      dispatch(pushAlert({ type: "error", message: e.response?.data?.message || "Could not update approver." }));
+    } finally { setTogglingId(null); }
   };
 
   const saveRoles = async () => {
@@ -572,113 +564,93 @@ const ApproversTab = ({ companyId, token, companyData, refresh }) => {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       refresh();
-    } catch (e) { console.error(e); }
-    finally { setSaving(false); }
+    } catch (e) {
+      dispatch(pushAlert({ type: "error", message: e.response?.data?.message || "Could not save approver roles." }));
+    } finally { setSaving(false); }
   };
 
-  const ApproverCard = ({ email, selected, onSelect }) => (
-    <button
-      type="button"
-      onClick={() => onSelect(email)}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
-        selected ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white hover:border-brand-300 hover:bg-slate-50"
-      }`}
-    >
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${selected ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-500"}`}>
-        {email[0].toUpperCase()}
-      </div>
-      <span className="text-sm font-medium text-slate-700 truncate flex-1">{email}</span>
-      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selected ? "border-brand-600 bg-brand-600" : "border-slate-300"}`}>
-        {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-      </div>
-    </button>
+  const Picker = ({ value, onSelect, label }) => (
+    <div role="radiogroup" aria-label={label} className="space-y-2">
+      {approverEmails.map((email) => {
+        const selected = value === email;
+        return (
+          <button
+            key={email}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onSelect(email)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+              selected ? "bg-brand-50 ring-2 ring-brand-300" : "bg-white ring-1 ring-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ${selected ? "ring-brand-600" : "ring-slate-300"}`}>
+              {selected && <span className="w-2.5 h-2.5 rounded-full bg-brand-600" />}
+            </span>
+            <span className={`flex-1 text-sm font-medium truncate ${selected ? "text-brand-800" : "text-navy-900"}`}>{email}</span>
+            {selected && <span className="text-[11px] font-semibold text-brand-700 bg-brand-100 rounded-full px-2.5 py-0.5">Selected</span>}
+          </button>
+        );
+      })}
+    </div>
   );
 
   return (
     <div className="space-y-6">
-      {/* Promote / demote approvers */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-        <SectionHeader label="Manage Approvers" color="bg-violet-50 text-violet-600" icon={
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.75a1.125 1.125 0 00-1.125 1.125V18.75m3-3.375v-1.5c0-.621-.504-1.125-1.125-1.125h-.75A1.125 1.125 0 0013.5 13.875v1.5m-4.5-1.5v1.5" />
-          </svg>
-        } />
-        <p className="text-sm text-slate-500 mb-4">Toggle which employees can act as approvers in your organization.</p>
+      <Section icon={UserCog} tone="bg-sky-50 text-sky-600" title="Manage approvers" desc="Choose which employees can act as approvers in your organization.">
         {employees.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">No employees yet.</p>
+          <p className="text-sm text-slate-400 text-center py-6 rounded-xl border-2 border-dashed border-slate-200">No employees yet.</p>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-100">
             {employees.map((emp) => {
               const isApprover = emp.role === "approver";
               return (
-                <div key={emp._id} className="flex items-center gap-3 py-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {(emp.name || emp.email)[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 capitalize truncate">{emp.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{emp.email}</p>
-                  </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${isApprover ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-600"}`}>
-                    {emp.role}
+                <li key={emp._id} className="flex flex-wrap items-center gap-3 py-3 px-4">
+                  <span className="w-9 h-9 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xs flex-shrink-0">{toInitials(emp.name || emp.email)}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold text-navy-900 capitalize truncate">{emp.name}</span>
+                    <span className="block text-xs text-slate-500 truncate">{emp.email}</span>
+                  </span>
+                  <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${isApprover ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-600"}`}>
+                    {ROLE_LABELS[emp.role] || emp.role}
                   </span>
                   <button
                     onClick={() => toggleApprover(emp)}
                     disabled={togglingId === emp._id}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ${
+                    className={`h-8 text-xs font-semibold px-3 rounded-lg transition-colors disabled:opacity-50 ${
                       isApprover ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-brand-50 text-brand-600 hover:bg-brand-100"
                     }`}
                   >
-                    {togglingId === emp._id ? <Spinner /> : isApprover ? "Remove Approver" : "Make Approver"}
+                    {togglingId === emp._id ? <Spinner className="w-4 h-4" /> : isApprover ? "Remove approver" : "Make approver"}
                   </button>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </div>
+      </Section>
 
-      {/* Funding / vetting reassignment */}
       {approverEmails.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-8 text-center text-slate-400 text-sm">
+        <Card className="p-8 text-center text-slate-400 text-sm">
           Promote at least one employee to approver above before assigning funding and vetting roles.
-        </div>
+        </Card>
       ) : (
         <>
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-            <SectionHeader label="Funding Approver" color="bg-amber-50 text-amber-600" icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-              </svg>
-            } />
-            <p className="text-sm text-slate-500 mb-4">Select the approver responsible for funding decisions.</p>
-            <div className="space-y-2">
-              {approverEmails.map((email) => (
-                <ApproverCard key={email} email={email} selected={fundingApprover === email} onSelect={setFundingApprover} />
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-            <SectionHeader label="Vetting Approver" color="bg-sky-50 text-sky-600" icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-              </svg>
-            } />
-            <p className="text-sm text-slate-500 mb-4">Select the approver responsible for vetting and verification.</p>
-            <div className="space-y-2">
-              {approverEmails.map((email) => (
-                <ApproverCard key={email} email={email} selected={vettingApprover === email} onSelect={setVettingApprover} />
-              ))}
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Section icon={Wallet} tone="bg-amber-50 text-amber-600" title="Funding approver" desc="Authorizes or declines disbursements and attaches proof of funds.">
+              <Picker label="Funding approver" value={fundingApprover} onSelect={setFundingApprover} />
+            </Section>
+            <Section icon={ShieldCheck} tone="bg-emerald-50 text-emerald-600" title="Vetting approver" desc="Confirms proof of use before a request closes as approved.">
+              <Picker label="Vetting approver" value={vettingApprover} onSelect={setVettingApprover} />
+            </Section>
           </div>
 
           {(rolesDirty || saved) && (
-            <div className="flex items-center justify-between">
-              <SaveBanner show={saved} />
-              <button onClick={saveRoles} disabled={saving || !rolesDirty || !fundingApprover || !vettingApprover} className="btn-primary disabled:opacity-60 ml-auto">
-                {saving ? <span className="flex items-center gap-2"><Spinner />Saving...</span> : "Save Approver Roles"}
-              </button>
+            <div className="flex items-center justify-end gap-3">
+              <Saved show={saved} />
+              <PrimaryButton onClick={saveRoles} disabled={saving || !rolesDirty || !fundingApprover || !vettingApprover}>
+                {saving ? <Busy label="Saving..." /> : "Save approver roles"}
+              </PrimaryButton>
             </div>
           )}
         </>
@@ -687,14 +659,14 @@ const ApproversTab = ({ companyId, token, companyData, refresh }) => {
   );
 };
 
-// Main Settings 
+// Main Settings
 const Settings = () => {
   const userid = getId();
   const token = getToken();
   const role = getRole();
   const companyId = getCompanyId();
   const storedUser = getDisplayName();
-  const initials = storedUser.split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+  const initials = toInitials(storedUser);
 
   const isAdmin = role === "admin";
   const isAdminOrApprover = role === "admin" || role === "approver";
@@ -716,52 +688,59 @@ const Settings = () => {
   useEffect(() => { loadCompany(); }, []);
 
   const tabs = [
-    { key: "profile", label: "Profile" },
-    ...(isAdminOrApprover ? [{ key: "organization", label: "Organization" }] : []),
-    ...(isAdmin ? [{ key: "approvers", label: "Approvers" }] : []),
+    { key: "profile", label: "Profile", desc: "Your details and password", icon: User },
+    ...(isAdminOrApprover ? [{ key: "organization", label: "Organization", desc: isAdmin ? "Budget, departments, members" : "Departments and members", icon: Building2 }] : []),
+    ...(isAdmin ? [{ key: "approvers", label: "Approvers", desc: "Funding and vetting roles", icon: KeyRound }] : []),
   ];
 
   const [activeTab, setActiveTab] = useState("profile");
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Settings</h1>
-        <p className="text-slate-500 text-sm mt-1">Manage your profile and organization preferences</p>
-      </div>
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader eyebrow="Settings" title="Settings" desc="Manage your profile, organization and approval preferences." />
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === tab.key
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 lg:gap-8 items-start">
+        {/* Section navigation: a column on desktop, a scrollable row on small screens */}
+        <nav aria-label="Settings sections" className="flex lg:flex-col gap-1 overflow-x-auto lg:sticky lg:top-0 -mx-1 px-1">
+          {tabs.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left whitespace-nowrap transition-colors ${
+                  active ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-50 hover:text-navy-900"
+                }`}
+              >
+                <tab.icon className={`w-4 h-4 flex-shrink-0 ${active ? "text-brand-600" : "text-slate-400"}`} />
+                <span>
+                  <span className="block text-sm font-semibold">{tab.label}</span>
+                  <span className={`hidden lg:block text-xs ${active ? "text-brand-600/80" : "text-slate-400"}`}>{tab.desc}</span>
+                </span>
+              </button>
+            );
+          })}
+        </nav>
 
-      {companyLoading ? (
-        <div className="flex items-center gap-2 text-slate-400 py-12"><Spinner /><span className="text-sm">Loading...</span></div>
-      ) : (
-        <>
-          {activeTab === "profile" && (
-            <ProfileTab userid={userid} token={token} role={role} storedUser={storedUser} initials={initials} companyData={companyData} />
+        <div className="min-w-0">
+          {companyLoading ? (
+            <div className="flex items-center gap-2 text-slate-400 py-12"><Spinner /><span className="text-sm">Loading...</span></div>
+          ) : (
+            <>
+              {activeTab === "profile" && (
+                <ProfileTab userid={userid} token={token} role={role} storedUser={storedUser} initials={initials} companyData={companyData} goTo={setActiveTab} />
+              )}
+              {activeTab === "organization" && isAdminOrApprover && (
+                <OrganizationTab companyId={companyId} token={token} role={role} myDepartment={getUser()?.department} companyData={companyData} refresh={loadCompany} />
+              )}
+              {activeTab === "approvers" && isAdmin && (
+                <ApproversTab companyId={companyId} token={token} companyData={companyData} refresh={loadCompany} />
+              )}
+            </>
           )}
-          {activeTab === "organization" && isAdminOrApprover && (
-            <OrganizationTab companyId={companyId} token={token} role={role} myDepartment={getUser()?.department} companyData={companyData} refresh={loadCompany} />
-          )}
-          {activeTab === "approvers" && isAdmin && (
-            <ApproversTab companyId={companyId} token={token} companyData={companyData} refresh={loadCompany} />
-          )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,16 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
+import { BadgeCheck, Building2, GraduationCap, Lock, Search, Star, Trash2, UserMinus, UserPlus, Users } from "lucide-react";
 import api from "../../../utilis/api";
 import { getCompanyId, getRole, getId } from "../../../utilis/storage";
 import { setToogleInviteModal } from "../../../reduxtoolkit/features/modal/modalSlice";
 import { pushAlert } from "../../../reduxtoolkit/features/alert/alertSlice";
-import { EllipsisVerticalIcon, CheckCircleIcon, StarIcon, LockClosedIcon, TrashIcon } from "../../../components/icons";
+import {
+  ActionsMenu, Card, EmptyState, FilterPills, PageHeader, PrimaryButton, SelectField, Spinner, StatGrid, initials, pct,
+} from "../../../components/ui/PageKit";
 
 const roleColors = {
   admin: "bg-brand-50 text-brand-700 ring-brand-200",
   requester: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  approver: "bg-violet-50 text-violet-700 ring-violet-200",
+  approver: "bg-sky-50 text-sky-700 ring-sky-200",
   department_head: "bg-amber-50 text-amber-700 ring-amber-200",
 };
 
@@ -21,102 +23,20 @@ const roleLabels = {
   department_head: "Department Head",
 };
 
-const initials = (name) =>
-  (name || "").split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-
-const avatarColors = [
-  "from-brand-400 to-brand-600",
-  "from-emerald-400 to-teal-600",
-  "from-violet-400 to-purple-600",
-  "from-amber-400 to-orange-600",
-  "from-rose-400 to-pink-600",
-  "from-sky-400 to-blue-600",
+const avatarTones = [
+  "bg-brand-50 text-brand-600",
+  "bg-emerald-50 text-emerald-600",
+  "bg-sky-50 text-sky-600",
+  "bg-amber-50 text-amber-600",
 ];
 
-const Spinner = () => (
-  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-  </svg>
-);
-
-const FILTERS = ["all", "admin", "department_head", "approver", "requester"];
-
-// Compact dropdown replacing a row of individual buttons in a table's
-// Actions column — keeps the column a single tap target regardless of how
-// many actions apply, instead of a wall of buttons that force horizontal
-// scrolling on narrow screens. Rendered via a portal to <body> with
-// fixed positioning so it isn't clipped by the table's horizontal-scroll
-// wrapper or the card's rounded-corner overflow-hidden.
-const ActionsMenu = ({ actions }) => {
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState(null);
-  const btnRef = useRef(null);
-  const menuRef = useRef(null);
-
-  const toggle = () => {
-    if (!open && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    }
-    setOpen((o) => !o);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e) => {
-      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
-      setOpen(false);
-    };
-    // Any scroll (the page or the table's own horizontal scroll) closes the
-    // menu rather than trying to keep it glued to the button.
-    const onScroll = () => setOpen(false);
-    document.addEventListener("mousedown", onClick);
-    window.addEventListener("scroll", onScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      window.removeEventListener("scroll", onScroll, true);
-    };
-  }, [open]);
-
-  const visible = actions.filter(Boolean);
-  if (visible.length === 0) return null;
-
-  return (
-    <>
-      <button
-        ref={btnRef}
-        onClick={toggle}
-        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
-        aria-label="Actions"
-      >
-        <EllipsisVerticalIcon className="w-5 h-5" />
-      </button>
-      {open && coords && createPortal(
-        <div
-          ref={menuRef}
-          style={{ position: "fixed", top: coords.top, right: coords.right }}
-          className="z-50 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1"
-        >
-          {visible.map((a) => (
-            <button
-              key={a.label}
-              onClick={() => { setOpen(false); a.onClick(); }}
-              disabled={a.disabled}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors disabled:opacity-50 ${
-                a.danger ? "text-red-600 hover:bg-red-50" : "text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              {a.icon}
-              {a.label}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </>
-  );
-};
+const ROLE_TABS = [
+  { key: "all", label: "All" },
+  { key: "admin", label: "Admins" },
+  { key: "department_head", label: "Department heads" },
+  { key: "approver", label: "Approvers" },
+  { key: "requester", label: "Requesters" },
+];
 
 const Teams = () => {
   const dispatch = useDispatch();
@@ -148,13 +68,14 @@ const Teams = () => {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = teamList.filter((m) => {
-    const matchesRole = roleFilter === "all" || m.role === roleFilter;
+  // Department + search narrow the list; role pills and their counts apply on top
+  const narrowed = teamList.filter((m) => {
     const matchesDept = deptFilter === "all" || m.department === deptFilter;
-    const full = `${m.name} ${m.email} ${m.role}`.toLowerCase();
-    const matchesSearch = !search || full.includes(search.toLowerCase());
-    return matchesRole && matchesDept && matchesSearch;
+    const full = `${m.name} ${m.email} ${m.role} ${m.department}`.toLowerCase();
+    return matchesDept && (!search || full.includes(search.toLowerCase()));
   });
+  const filtered = roleFilter === "all" ? narrowed : narrowed.filter((m) => m.role === roleFilter);
+  const roleCount = (r) => (r === "all" ? narrowed.length : narrowed.filter((m) => m.role === r).length);
 
   const currentDeptHead = deptFilter !== "all"
     ? teamList.find((m) => m.department === deptFilter && m.role === "department_head")
@@ -211,172 +132,172 @@ const Teams = () => {
     } finally { setBusyId(null); }
   };
 
+  const showActions = canManageApprovers || canRevokeOrDelete;
+  const heads = teamList.filter((m) => m.role === "department_head").length;
+  const headedDepts = new Set(teamList.filter((m) => m.role === "department_head").map((m) => m.department)).size;
+  const approverCount = teamList.filter((m) => m.role === "approver").length;
+  const revoked = teamList.filter((m) => m.status === "suspended").length;
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Team</h1>
-          <p className="text-slate-500 text-sm mt-1">{teamList.length} members in your organization</p>
-        </div>
-        {canInvite && (
-          <button onClick={() => dispatch(setToogleInviteModal(true))} className="btn-primary self-start sm:self-auto">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-            </svg>
-            Invite member
-          </button>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Organization"
+        title="Team"
+        desc="View and manage the people in your organization and the roles they hold."
+        action={canInvite && <PrimaryButton icon={UserPlus} onClick={() => dispatch(setToogleInviteModal(true))}>Invite member</PrimaryButton>}
+      />
+
+      <StatGrid
+        items={[
+          { label: "Total members", value: teamList.length, sub: `Across ${departmentOptions.length} department${departmentOptions.length === 1 ? "" : "s"}`, icon: Users, tone: "brand" },
+          { label: "Department heads", value: heads, sub: `${headedDepts} of ${departmentOptions.length} departments covered`, icon: GraduationCap, tone: "amber" },
+          { label: "Approvers", value: approverCount, sub: `${pct(approverCount, teamList.length)} of the team`, icon: BadgeCheck, tone: "sky" },
+          { label: "Revoked", value: revoked, sub: revoked ? "Can't submit requests" : "Everyone can submit requests", icon: UserMinus, tone: "red" },
+        ]}
+      />
 
       {actionError && (
-        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-          {actionError}
-        </div>
+        <div className="rounded-xl bg-red-50 ring-1 ring-red-200 px-4 py-3 text-sm text-red-700">{actionError}</div>
       )}
 
-      {/* Search + role filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative max-w-sm flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input
-            type="text" placeholder="Search team members..."
-            value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all"
+      <Card>
+        {/* Filters */}
+        <div className="px-4 sm:px-5 py-4 flex flex-col lg:flex-row lg:items-center gap-3 border-b border-slate-100">
+          <FilterPills
+            value={roleFilter}
+            onChange={setRoleFilter}
+            options={ROLE_TABS.map((t) => ({ ...t, count: roleCount(t.key) }))}
           />
-        </div>
-        {departmentOptions.length > 0 && (
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-xl bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all capitalize"
-          >
-            <option value="all">All departments</option>
-            {departmentOptions.map((d) => <option key={d} value={d} className="capitalize">{d}</option>)}
-          </select>
-        )}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              onClick={() => setRoleFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                roleFilter === f ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {f === "all" ? "All" : roleLabels[f]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {deptFilter !== "all" && (
-        <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${
-          currentDeptHead ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-slate-50 border border-slate-200 text-slate-600"
-        }`}>
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443" />
-          </svg>
-          {currentDeptHead
-            ? <span className="capitalize">Department head for {deptFilter}: <strong>{currentDeptHead.name}</strong></span>
-            : <span className="capitalize">No department head assigned for {deptFilter} yet.{canManageApprovers && " Use “Make Dept Head” below to assign one."}</span>}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex justify-center py-12"><Spinner /></div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-card">
-          <p className="font-semibold text-slate-700">No team members found</p>
-          <p className="text-sm text-slate-400 mt-1">Try adjusting your search or filter.</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[640px]">
-            <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Member</th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Department</th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                {(canManageApprovers || canRevokeOrDelete) && (
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((member, i) => {
-                const isBusy = busyId === member._id;
-                const isSelf = member._id === myId;
-                return (
-                  <tr key={member._id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
-                          {initials(member.name)}
-                        </div>
-                        <div>
-                          <span className="font-semibold text-slate-800 capitalize block">{member.name}</span>
-                          <span className="text-xs text-slate-400">{member.email}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-slate-600 capitalize text-sm">{member.department || "—"}</td>
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ${roleColors[member.role] || "bg-slate-100 text-slate-600 ring-slate-200"}`}>
-                        {roleLabels[member.role] || member.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex items-center gap-1 text-xs font-semibold ${member.status === "suspended" ? "text-red-600" : "text-emerald-600"}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${member.status === "suspended" ? "bg-red-500" : "bg-emerald-500"}`} />
-                        {member.status === "suspended" ? "Revoked" : "Active"}
-                      </span>
-                    </td>
-                    {(canManageApprovers || canRevokeOrDelete) && (
-                      <td className="px-6 py-4 text-right">
-                        {isBusy ? (
-                          <div className="inline-flex p-1.5"><Spinner /></div>
-                        ) : (
-                          <ActionsMenu
-                            actions={[
-                              canManageApprovers && member.role !== "admin" && {
-                                label: member.role === "approver" ? "Unset approver" : "Make approver",
-                                icon: <CheckCircleIcon className="w-4 h-4" />,
-                                onClick: () => toggleApproverRole(member, "approver"),
-                              },
-                              canManageApprovers && member.role !== "admin" && {
-                                label: member.role === "department_head" ? "Unset dept head" : "Make dept head",
-                                icon: <StarIcon className="w-4 h-4" />,
-                                onClick: () => toggleApproverRole(member, "department_head"),
-                              },
-                              canRevokeOrDelete && member.role !== "admin" && !isSelf && {
-                                label: member.status === "suspended" ? "Restore rights" : "Revoke rights",
-                                icon: <LockClosedIcon className="w-4 h-4" />,
-                                onClick: () => toggleRevoke(member),
-                              },
-                              canRevokeOrDelete && member.role !== "admin" && !isSelf && {
-                                label: "Delete",
-                                icon: <TrashIcon className="w-4 h-4" />,
-                                onClick: () => deleteMember(member),
-                                danger: true,
-                              },
-                            ]}
-                          />
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+            <div className="relative w-56">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="search"
+                aria-label="Search team members"
+                placeholder="Search members..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="block w-full h-9 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-navy-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              />
+            </div>
+            {departmentOptions.length > 0 && (
+              <SelectField
+                label="Department"
+                icon={Building2}
+                value={deptFilter}
+                onChange={setDeptFilter}
+                className="w-44"
+                options={[{ value: "all", label: "All departments" }, ...departmentOptions.map((d) => ({ value: d, label: d }))]}
+              />
+            )}
           </div>
         </div>
-      )}
+
+        {deptFilter !== "all" && (
+          <div className={`px-5 py-2.5 border-b text-xs flex items-center gap-2 ${
+            currentDeptHead ? "bg-amber-50/60 border-amber-100 text-amber-800" : "bg-slate-50 border-slate-100 text-slate-600"
+          }`}>
+            <GraduationCap className="w-4 h-4 flex-shrink-0" />
+            {currentDeptHead
+              ? <span className="capitalize">Department head for {deptFilter}: <strong>{currentDeptHead.name}</strong></span>
+              : <span className="capitalize">No department head assigned for {deptFilter} yet.{canManageApprovers && " Use “Make dept head” in a member's actions to assign one."}</span>}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="p-12 flex justify-center"><Spinner className="w-6 h-6" /></div>
+        ) : filtered.length === 0 ? (
+          <EmptyState icon={Users} title="No team members found" desc="Try adjusting your search or filters." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[680px]">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
+                  <th className="px-5 py-3">Member</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Status</th>
+                  {showActions && <th className="px-5 py-3 text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map((member, i) => {
+                  const isBusy = busyId === member._id;
+                  const isSelf = member._id === myId;
+                  const suspended = member.status === "suspended";
+                  return (
+                    <tr key={member._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <span className="flex items-center gap-3">
+                          <span className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${avatarTones[i % avatarTones.length]}`}>
+                            {initials(member.name)}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block font-semibold text-navy-900 capitalize truncate">{member.name}{isSelf && <span className="ml-1.5 text-xs font-normal text-slate-400">(you)</span>}</span>
+                            <span className="block text-xs text-slate-400 truncate">{member.email}</span>
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-500 capitalize">{member.department || "—"}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 whitespace-nowrap ${roleColors[member.role] || "bg-slate-100 text-slate-600 ring-slate-200"}`}>
+                          {roleLabels[member.role] || member.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={suspended ? "status-rejected" : "status-approved"}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />
+                          {suspended ? "Revoked" : "Active"}
+                        </span>
+                      </td>
+                      {showActions && (
+                        <td className="px-5 py-3.5 text-right">
+                          {isBusy ? (
+                            <span className="inline-flex p-1.5"><Spinner className="w-4 h-4" /></span>
+                          ) : (
+                            <ActionsMenu
+                              actions={[
+                                canManageApprovers && member.role !== "admin" && {
+                                  label: member.role === "approver" ? "Unset approver" : "Make approver",
+                                  icon: BadgeCheck,
+                                  onClick: () => toggleApproverRole(member, "approver"),
+                                },
+                                canManageApprovers && member.role !== "admin" && {
+                                  label: member.role === "department_head" ? "Unset dept head" : "Make dept head",
+                                  icon: Star,
+                                  onClick: () => toggleApproverRole(member, "department_head"),
+                                },
+                                canRevokeOrDelete && member.role !== "admin" && !isSelf && {
+                                  label: suspended ? "Restore rights" : "Revoke rights",
+                                  icon: Lock,
+                                  onClick: () => toggleRevoke(member),
+                                },
+                                canRevokeOrDelete && member.role !== "admin" && !isSelf && {
+                                  label: "Delete",
+                                  icon: Trash2,
+                                  onClick: () => deleteMember(member),
+                                  danger: true,
+                                },
+                              ]}
+                            />
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && (
+          <div className="px-5 py-3.5 border-t border-slate-100 text-xs text-slate-500">
+            Showing <span className="font-semibold text-navy-900">{filtered.length}</span> of{" "}
+            <span className="font-semibold text-navy-900">{teamList.length}</span> members
+          </div>
+        )}
+      </Card>
     </div>
   );
 };

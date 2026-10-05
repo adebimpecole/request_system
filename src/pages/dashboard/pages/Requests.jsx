@@ -1,121 +1,28 @@
 import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Building2, CalendarDays, CircleCheck, CircleX, Clock, Copy, Eye, FileText, Plus, Search, Users, X } from "lucide-react";
 import api from "../../../utilis/api";
 import { getFormattedDate, needsMyAction, needsMyResponse } from "../../../utilis/functions";
-import { setToogleRequestModal } from "../../../reduxtoolkit/features/modal/modalSlice";
 import { getId, getCompanyId, getRole, getEmail, getUser } from "../../../utilis/storage";
+import { canCreateRequests } from "../../../utilis/roles";
+import {
+  ActionsMenu, Card, DATE_RANGES, EmptyState, FilterPills, PageHeader, PrimaryButton, SelectField,
+  Spinner, StatGrid, StatusBadge, money, pct, shortRef, withinRange,
+} from "../../../components/ui/PageKit";
 
-const STATUS_FILTERS = ["all", "approved", "pending", "rejected"];
-
-const statusBadge = (status) => {
+const STATUS_TABS = ["all", "pending", "approved", "rejected"];
+// Statuses that are still moving through the chain count as "pending"
+const statusGroup = (status) => {
   const s = (status || "pending").toLowerCase();
-  const map = {
-    approved: "status-approved",
-    rejected: "status-rejected",
-    pending: "status-pending",
-    "in-review": "status-review",
-    under_review: "status-review",
-    vetted: "status-review",
-  };
-  const cls = map[s] || "status-pending";
-  return (
-    <span className={cls}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />
-      {status || "Pending"}
-    </span>
-  );
+  if (s === "approved") return "approved";
+  if (s === "rejected" || s === "closed") return "rejected";
+  return "pending";
 };
 
-const RequestTable = ({ rows, loading, onRowClick }) => {
-  if (loading) return (
-    <div className="p-12 text-center">
-      <svg className="w-6 h-6 animate-spin text-brand-500 mx-auto" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-      </svg>
-    </div>
-  );
-
-  if (rows.length === 0) return (
-    <div className="p-12 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-        <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-        </svg>
-      </div>
-      <p className="font-semibold text-slate-700 mb-1">No requests found</p>
-      <p className="text-sm text-slate-400">Try adjusting your filter.</p>
-    </div>
-  );
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-100">
-            <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-            <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-            <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Category</th>
-            <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Title</th>
-            <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-            <th className="text-right px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
-            <th className="px-4 py-3.5" />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((data, i) => (
-            <tr
-              key={data.request_id || i}
-              onClick={() => onRowClick(data.request_id)}
-              className="border-b border-slate-50 hover:bg-slate-50/80 cursor-pointer transition-colors group"
-            >
-              <td className="px-6 py-4 text-slate-400 text-xs font-medium">{i + 1}</td>
-              <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">{getFormattedDate(data.date_created)}</td>
-              <td className="px-4 py-4">
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{data.category}</span>
-              </td>
-              <td className="px-4 py-4 font-semibold text-slate-800 capitalize group-hover:text-brand-600 transition-colors">{data.title}</td>
-              <td className="px-4 py-4">{statusBadge(data.status)}</td>
-              <td className="px-6 py-4 text-right font-bold text-slate-900">${parseFloat(data.amount || 0).toLocaleString()}</td>
-              <td className="px-4 py-4">
-                <svg className="w-4 h-4 text-slate-300 group-hover:text-brand-500 transition-colors ml-auto" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-const StatusFilterBar = ({ list, activeFilter, onChange }) => {
-  const counts = STATUS_FILTERS.reduce((acc, f) => {
-    acc[f] = f === "all" ? list.length : list.filter(r => (r.status || "pending").toLowerCase() === f).length;
-    return acc;
-  }, {});
-
-  return (
-    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl flex-shrink-0 overflow-x-auto max-w-full">
-      {STATUS_FILTERS.map((f) => (
-        <button
-          key={f}
-          onClick={() => onChange(f)}
-          className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all duration-150 ${activeFilter === f ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-        >
-          {f} <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${activeFilter === f ? "bg-brand-100 text-brand-700" : "bg-slate-200 text-slate-500"}`}>{counts[f]}</span>
-        </button>
-      ))}
-    </div>
-  );
-};
+const fileTones = ["bg-brand-50 text-brand-600", "bg-emerald-50 text-emerald-600", "bg-amber-50 text-amber-600", "bg-sky-50 text-sky-600"];
 
 const Requests = () => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const toggleRequestModal = useSelector((state) => state.modal.toggleRequestModal);
 
   const role = getRole();
   const myId = getId();
@@ -123,17 +30,24 @@ const Requests = () => {
 
   const [allRequests, setAllRequests] = useState([]);
   const [approversDoc, setApproversDoc] = useState(null);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
 
-  // For approvers: top-level tab (action needed vs personal vs others)
-  const [view, setView] = useState("personal"); // "action" | "personal" | "others"
-  // Status sub-filter per view
-  const [personalFilter, setPersonalFilter] = useState("all");
-  const [othersFilter, setOthersFilter] = useState("all");
+  // Search lives in ?q= so the top-bar search and this page's box stay in sync
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get("q") || "";
+  const search = query.trim().toLowerCase();
+  const setQuery = (v) => {
+    const next = new URLSearchParams(searchParams);
+    if (v) next.set("q", v); else next.delete("q");
+    setSearchParams(next, { replace: true });
+  };
 
-  // For plain requesters: single status filter
-  const [filter, setFilter] = useState("all");
+  // Approvers can narrow to what needs them, their own, or everyone else's
+  const [scope, setScope] = useState("all"); // "all" | "action" | "mine" | "others"
+  const [statusTab, setStatusTab] = useState("all");
+  const [department, setDepartment] = useState("all");
+  const [range, setRange] = useState("all");
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -146,6 +60,7 @@ const Requests = () => {
           ]);
           res = requestsRes;
           setApproversDoc(companyRes.data?.approvers || null);
+          setEmployees(companyRes.data?.employees || []);
         } else {
           res = await api.get(`/employee/requests/${myId}`);
         }
@@ -159,22 +74,8 @@ const Requests = () => {
     fetchRequests();
   }, []);
 
-  const applySearch = (list) =>
-    !search
-      ? list
-      : list.filter(
-          (r) =>
-            r.title?.toLowerCase().includes(search.toLowerCase()) ||
-            r.category?.toLowerCase().includes(search.toLowerCase())
-        );
-
-  const applyStatus = (list, statusFilter) =>
-    statusFilter === "all"
-      ? list
-      : list.filter((r) => (r.status || "pending").toLowerCase() === statusFilter);
-
-  const personal = allRequests.filter((r) => String(r.user_id) === myId);
-  const others = allRequests.filter((r) => String(r.user_id) !== myId);
+  const nameById = Object.fromEntries(employees.map((e) => [String(e._id), e.name]));
+  const requesterName = (r) => (String(r.user_id) === myId ? "You" : nameById[String(r.user_id)] || "—");
 
   const actionCtx = {
     role,
@@ -184,105 +85,167 @@ const Requests = () => {
     fundingAuthority: approversDoc?.funding_authority,
     verificationAuthority: approversDoc?.verification_authority,
   };
-  const actionable = allRequests.filter((r) => needsMyAction(r, actionCtx) || needsMyResponse(r, actionCtx));
+  const isActionable = (r) => needsMyAction(r, actionCtx) || needsMyResponse(r, actionCtx);
 
-  const visiblePersonal = applySearch(applyStatus(personal, personalFilter));
-  const visibleOthers = applySearch(applyStatus(others, othersFilter));
-  const visibleAction = applySearch(actionable);
+  const inScope = allRequests.filter((r) =>
+    scope === "action" ? isActionable(r)
+      : scope === "mine" ? String(r.user_id) === myId
+        : scope === "others" ? String(r.user_id) !== myId
+          : true
+  );
+  // Department, date and search narrow everything below, including the stat tiles
+  const narrowed = inScope.filter((r) =>
+    (department === "all" || r.department === department) &&
+    withinRange(r.date_created, range) &&
+    (!search || [r.title, r.category, r.department, r.request_id].some((v) => String(v || "").toLowerCase().includes(search)))
+  );
+  const counts = STATUS_TABS.reduce((acc, t) => {
+    acc[t] = t === "all" ? narrowed.length : narrowed.filter((r) => statusGroup(r.status) === t).length;
+    return acc;
+  }, {});
+  const rows = statusTab === "all" ? narrowed : narrowed.filter((r) => statusGroup(r.status) === statusTab);
 
-  const visibleRequester = applySearch(applyStatus(allRequests, filter));
+  const last30 = narrowed.filter((r) => withinRange(r.date_created, "30")).length;
+  const departments = [...new Set(allRequests.map((r) => r.department).filter(Boolean))].sort();
+  const actionCount = allRequests.filter(isActionable).length;
+
+  const filtersActive = scope !== "all" || department !== "all" || range !== "all" || !!search;
+  const clearFilters = () => { setScope("all"); setDepartment("all"); setRange("all"); setQuery(""); };
+  const open = (id) => navigate(`/employeedashboard/request-details/${id}`);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Requests</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {isApprover ? "Your submissions and requests pending your review" : "Track your financial requisitions"}
-          </p>
-        </div>
-        <button
-          onClick={() => dispatch(setToogleRequestModal(!toggleRequestModal))}
-          className="btn-primary self-start sm:self-auto"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          New Request
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Financial requisitions"
+        title="Requests"
+        desc={isApprover ? "View, track and manage all financial requisitions in your organization." : "Track your financial requisitions."}
+        action={canCreateRequests(role) && <PrimaryButton icon={Plus} onClick={() => navigate("/employeedashboard/requests/new")}>New Request</PrimaryButton>}
+      />
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card">
-        <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
-          {isApprover ? (
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl flex-shrink-0 overflow-x-auto max-w-full">
-              {[
-                { key: "action", label: "Needs My Action", count: actionable.length },
-                { key: "personal", label: "Personal", count: personal.length },
-                { key: "others", label: "Others", count: others.length },
-              ].map(({ key, label, count }) => (
-                <button
-                  key={key}
-                  onClick={() => setView(key)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 ${view === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                >
-                  {label}{" "}
-                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${
-                    view === key ? "bg-brand-100 text-brand-700" : key === "action" && count > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-500"
-                  }`}>{count}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <StatusFilterBar list={allRequests} activeFilter={filter} onChange={setFilter} />
-          )}
-          <div className="relative flex-1 max-w-xs">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
+      <StatGrid
+        items={[
+          { label: "Total requests", value: counts.all, sub: `${last30} in the last 30 days`, icon: FileText, tone: "brand" },
+          { label: "Pending", value: counts.pending, sub: `${pct(counts.pending, counts.all)} still in the approval chain`, icon: Clock, tone: "amber" },
+          { label: "Approved", value: counts.approved, sub: `${pct(counts.approved, counts.all)} approval rate`, icon: CircleCheck, tone: "emerald" },
+          { label: "Rejected", value: counts.rejected, sub: `${pct(counts.rejected, counts.all)} rejected or closed`, icon: CircleX, tone: "red" },
+        ]}
+      />
+
+      <Card>
+        {/* Toolbar: status tabs + search, then filters */}
+        <div className="px-4 sm:px-5 pt-4 pb-3 flex flex-col md:flex-row md:items-center gap-3">
+          <FilterPills
+            value={statusTab}
+            onChange={setStatusTab}
+            options={STATUS_TABS.map((t) => ({ key: t, label: t[0].toUpperCase() + t.slice(1), count: counts[t] }))}
+          />
+          <div className="relative md:ml-auto md:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
-              type="text"
-              placeholder="Search requests..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all"
+              type="search"
+              aria-label="Search requests"
+              placeholder="Search title, reference, department..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="block w-full h-9 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-navy-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
             />
           </div>
         </div>
-
-        {isApprover && view !== "action" && (
-          <div className="px-6 py-3 border-b border-slate-100">
-            <StatusFilterBar
-              list={view === "personal" ? personal : others}
-              activeFilter={view === "personal" ? personalFilter : othersFilter}
-              onChange={view === "personal" ? setPersonalFilter : setOthersFilter}
+        <div className="px-4 sm:px-5 pb-4 flex flex-wrap items-center gap-2 border-b border-slate-100">
+          {isApprover && (
+            <SelectField
+              label="Whose requests"
+              icon={Users}
+              value={scope}
+              onChange={setScope}
+              className="w-52"
+              options={[
+                { value: "all", label: "All requests" },
+                { value: "action", label: `Needs my action (${actionCount})` },
+                // The admin never raises requests, so "mine/others" only applies to employees
+                ...(canCreateRequests(role) ? [
+                  { value: "mine", label: "My requests" },
+                  { value: "others", label: "Others' requests" },
+                ] : []),
+              ]}
             />
+          )}
+          {departments.length > 0 && (
+            <SelectField
+              label="Department"
+              icon={Building2}
+              value={department}
+              onChange={setDepartment}
+              className="w-48"
+              options={[{ value: "all", label: "All departments" }, ...departments.map((d) => ({ value: d, label: d }))]}
+            />
+          )}
+          <SelectField label="Date range" icon={CalendarDays} value={range} onChange={setRange} className="w-40" options={DATE_RANGES} />
+          {filtersActive && (
+            <button onClick={clearFilters} className="inline-flex items-center gap-1 h-9 px-2.5 text-xs font-semibold text-slate-500 hover:text-navy-900">
+              <X className="w-3.5 h-3.5" /> Clear filters
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="p-12 flex justify-center"><Spinner className="w-6 h-6" /></div>
+        ) : rows.length === 0 ? (
+          <EmptyState icon={FileText} title="No requests found" desc="Try adjusting your filters." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[820px]">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
+                  <th className="px-5 py-3">Reference #</th>
+                  <th className="px-4 py-3">Title</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Amount</th>
+                  {isApprover && <th className="px-4 py-3">Requested by</th>}
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {rows.map((r, i) => (
+                  <tr key={r.request_id || i} onClick={() => open(r.request_id)} className="hover:bg-slate-50 cursor-pointer transition-colors group">
+                    <td className="px-5 py-3.5">
+                      <span className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${fileTones[i % fileTones.length]}`}>
+                          <FileText className="w-4 h-4" />
+                        </span>
+                        <span className="font-mono text-xs text-slate-600">{shortRef(r.request_id)}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 font-medium text-navy-900 capitalize group-hover:text-brand-600 transition-colors">{r.title}</td>
+                    <td className="px-4 py-3.5 text-slate-500 capitalize">{r.department || "—"}</td>
+                    <td className="px-4 py-3.5 font-semibold text-navy-900 whitespace-nowrap">{money(r.amount)}</td>
+                    {isApprover && <td className="px-4 py-3.5 text-slate-500 capitalize whitespace-nowrap">{requesterName(r)}</td>}
+                    <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">{getFormattedDate(r.date_created)}</td>
+                    <td className="px-4 py-3.5"><StatusBadge status={r.status} /></td>
+                    <td className="px-5 py-3.5 text-right">
+                      <ActionsMenu
+                        actions={[
+                          { label: "View details", icon: Eye, onClick: () => open(r.request_id) },
+                          { label: "Copy reference", icon: Copy, onClick: () => navigator.clipboard?.writeText(shortRef(r.request_id)) },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
-        <RequestTable
-          loading={loading}
-          rows={isApprover ? (view === "action" ? visibleAction : view === "personal" ? visiblePersonal : visibleOthers) : visibleRequester}
-          onRowClick={(id) => navigate(`/employeedashboard/request-details/${id}`)}
-        />
-
-          {!loading && (
-          <div className="px-6 py-4 border-t border-slate-100">
-            <p className="text-xs text-slate-500">
-              Showing{" "}
-              <span className="font-semibold text-slate-700">
-                {isApprover ? (view === "action" ? visibleAction.length : view === "personal" ? visiblePersonal.length : visibleOthers.length) : visibleRequester.length}
-              </span>{" "}
-              of{" "}
-              <span className="font-semibold text-slate-700">
-                {isApprover ? (view === "action" ? actionable.length : view === "personal" ? personal.length : others.length) : allRequests.length}
-              </span>{" "}
-              requests
-            </p>
+        {!loading && (
+          <div className="px-5 py-3.5 border-t border-slate-100 text-xs text-slate-500">
+            Showing <span className="font-semibold text-navy-900">{rows.length}</span> of{" "}
+            <span className="font-semibold text-navy-900">{inScope.length}</span> requests
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };
